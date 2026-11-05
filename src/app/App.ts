@@ -2,6 +2,10 @@ import { MapView } from '../map/MapView';
 import { AreaSelector } from '../map/AreaSelector';
 import { boundsAreaKm2, boundsSizeMeters, MAX_AREA_KM2, validateSelection } from '../map/DhakaBounds';
 import { SceneManager } from '../renderer/SceneManager';
+import { fetchOSM, OSMImportError } from '../data/OSMClient';
+import { parseOverpass } from '../data/OSMParser';
+import { getCached, putCached } from '../data/ImportCache';
+import type { ImportResult } from '../types/features';
 import { store } from './state';
 import type { Bounds } from '../types/editor';
 
@@ -15,12 +19,12 @@ const TEMPLATE = `
 <div class="editor">
   <header class="topbar">
     <div class="brand"><img src="${import.meta.env.BASE_URL}favicon.svg" alt="" />DHAKA WORLD BUILDER</div>
-    <button id="btn-import" disabled title="Milestone 2">Import</button>
+    <button id="btn-import" disabled title="Import OpenStreetMap data for the selected area">Import</button>
     <button id="btn-generate" disabled title="Milestone 3">Generate</button>
     <button id="btn-save" disabled title="Milestone 4">Save</button>
     <button id="btn-export" disabled title="Milestone 5">Export</button>
     <span class="spacer"></span>
-    <span class="hint">Milestone 1: map &amp; area selection</span>
+    <span class="hint">Select area → Import → Generate → Export</span>
   </header>
 
   <aside class="panel left">
@@ -36,6 +40,13 @@ const TEMPLATE = `
         <button id="btn-fit" disabled>Zoom to selection</button>
       </div>
       <p class="hint" style="margin-top:8px">Click "Select Area", then drag a rectangle on the map. Esc cancels.</p>
+    </section>
+    <section>
+      <h2>Import</h2>
+      <div class="card">
+        <dl class="kv" id="imp-info"></dl>
+        <div id="imp-notice"></div>
+      </div>
     </section>
     <section>
       <h2>Selected area</h2>
@@ -69,6 +80,8 @@ export class App {
   private readonly mapView: MapView;
   private readonly selector: AreaSelector;
   private readonly scene: SceneManager;
+  private importResult: ImportResult | null = null;
+  private abort: AbortController | null = null;
 
   constructor(private readonly root: HTMLElement) {
     root.innerHTML = TEMPLATE;
@@ -86,6 +99,7 @@ export class App {
     this.mapView.whenReady().then(() => this.selector.init());
 
     this.renderSelection(null);
+    this.renderImport();
     this.renderStatus();
   }
 
@@ -128,6 +142,11 @@ export class App {
       if (s) this.mapView.fitTo(s.west, s.south, s.east, s.north);
     });
 
+    el(root, '#btn-import').addEventListener('click', () => {
+      if (this.abort) this.abort.abort();
+      else void this.runImport();
+    });
+
     window.addEventListener('resize', () => this.mapView.resize());
   }
 
@@ -137,8 +156,69 @@ export class App {
       const has = bounds !== null;
       (el(this.root, '#btn-clear') as HTMLButtonElement).disabled = !has;
       (el(this.root, '#btn-fit') as HTMLButtonElement).disabled = !has;
+      (el(this.root, '#btn-import') as HTMLButtonElement).disabled = !has;
+      // A new selection invalidates the previous import.
+      this.importResult = null;
+      this.renderImport();
     });
     store.on('status', () => this.renderStatus());
+  }
+
+  private async runImport(): Promise<void> {
+    const bounds = store.selection;
+    if (!bounds) return;
+    const btn = el<HTMLButtonElement>(this.root, '#btn-import');
+    this.importResult = null;
+    this.renderImport();
+    try {
+      let result = getCached(bounds);
+      if (result) {
+        store.setStatus('info', 'Loaded import from local cache.');
+      } else {
+        this.abort = new AbortController();
+        btn.textContent = 'Cancel import';
+        store.setStatus('info', 'Importing from OpenStreetMap…');
+        const raw = await fetchOSM(bounds, {
+          signal: this.abort.signal,
+          onRetry: ({ attempt, reason, delayMs }) =>
+            store.setStatus('warn', `Overpass: ${reason}. Retry ${attempt} in ${Math.round(delayMs / 1000)}s…`),
+        });
+        result = parseOverpass(raw);
+        putCached(bounds, result);
+      }
+      this.importResult = result;
+      const n = result.features.length;
+      store.setStatus(result.warnings.length ? 'warn' : 'info', `Imported ${n} feature${n === 1 ? '' : 's'}.`);
+    } catch (err) {
+      const e = err as Error;
+      if (e.name === 'AbortError') store.setStatus('info', 'Import cancelled.');
+      else store.setStatus('error', err instanceof OSMImportError ? e.message : `Import failed: ${e.message}`);
+    } finally {
+      this.abort = null;
+      btn.textContent = 'Import';
+      this.renderImport();
+    }
+  }
+
+  private renderImport(): void {
+    const info = el(this.root, '#imp-info');
+    const notice = el(this.root, '#imp-notice');
+    const r = this.importResult;
+    if (!r) {
+      info.innerHTML = '<dt>Status</dt><dd>Nothing imported</dd>';
+      notice.innerHTML = '';
+      return;
+    }
+    const c = r.counts;
+    info.innerHTML = `
+      <dt>Buildings</dt><dd>${c.building}</dd>
+      <dt>Roads</dt><dd>${c.road}</dd>
+      <dt>Paths</dt><dd>${c.path}</dd>
+      <dt>Waterways</dt><dd>${c.waterway}</dd>
+      <dt>Water areas</dt><dd>${c.water}</dd>
+      <dt>Green areas</dt><dd>${c.green}</dd>`;
+    notice.innerHTML = r.warnings.map(() => `<div class="notice warn"></div>`).join('');
+    notice.querySelectorAll('.notice').forEach((n, i) => (n.textContent = r.warnings[i].message));
   }
 
   private renderStatus(): void {
