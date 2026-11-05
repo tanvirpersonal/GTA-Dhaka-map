@@ -1,0 +1,22 @@
+{
+  "name": "dhaka-world-builder",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Browser-based tool that imports real Dhaka map data, builds an editable 3D city and exports game-ready GLB assets.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "maplibre-gl": "^6.16.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.187.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.6"
+  }
+}
