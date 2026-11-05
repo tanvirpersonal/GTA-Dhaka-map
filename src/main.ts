@@ -4,6 +4,7 @@ import { MapView } from './map/MapView';
 import { AreaSelector } from './map/AreaSelector';
 import { boundsAreaKm2, boundsSizeMeters, validateSelection } from './map/DhakaBounds';
 import { SceneManager } from './renderer/SceneManager';
+import { ObjectPicker } from './renderer/ObjectPicker';
 import { fetchOSM, type OSMFeature } from './data/OSMClient';
 import { generateCity, type GenerationStats } from './generator/CityGenerator';
 import type { Bounds } from './types/editor';
@@ -42,6 +43,12 @@ root.innerHTML = `
       <div class="property-block"><label>Building height source</label><strong>OSM tags / estimated defaults</strong></div>
       <div class="property-block"><label>Export format</label><strong>GLB · glTF 2.0</strong></div></section>
       <section class="card stats-card"><h2>Generation report</h2><div id="generation-report" class="report">Import a small area to begin.</div></section>
+      <section class="card inspector-card"><h2>04 / Object inspector</h2><div id="object-empty" class="report">Click a building in the 3D viewport to inspect it.</div>
+        <div id="object-editor" hidden><div class="property-block"><label>Object</label><strong id="object-name">Building</strong></div>
+          <div class="property-block"><label>OSM ID</label><strong id="object-osm-id">—</strong></div>
+          <div class="property-block"><label>Building height <span id="height-value">—</span> m</label><input id="building-height" type="range" min="3" max="120" step="0.5" value="10" /><div class="range-labels"><span>3 m</span><span>120 m</span></div></div>
+          <p id="height-source" class="hint"></p><button id="reset-height" class="full">Reset original height</button>
+        </div></section>
       <section class="card"><h2>Workflow</h2><ol class="workflow"><li class="done">Editor initialized</li><li id="step-selection">Select a Dhaka area</li><li id="step-import">Import OSM features</li><li id="step-generate">Generate 3D geometry</li><li id="step-export">Export game asset</li></ol></section>
       <p class="attribution">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>. OSM data is available under ODbL.</p>
     </aside>
@@ -59,6 +66,7 @@ const importButton = $('import-osm') as HTMLButtonElement;
 const generateButton = $('generate-city') as HTMLButtonElement;
 const exportButton = $('export-glb') as HTMLButtonElement;
 const scene = new SceneManager($('viewport'));
+const picker = new ObjectPicker(scene.camera, scene.renderer.domElement, scene.scene);
 scene.start();
 scene.onFps = (fps) => { $('fps').textContent = `FPS ${fps}`; };
 const mapView = new MapView($('map'));
@@ -67,9 +75,11 @@ let selectedBounds: Bounds | null = null;
 let osmFeatures: OSMFeature[] = [];
 let cityGroup: THREE.Group | null = null;
 let generationStats: GenerationStats | null = null;
+let selectedObject: THREE.Mesh | null = null;
+let originalBuildingHeight = 0;
 let busy = false;
 
-function setStatus(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
+picker.onSelect = ({ object } = { object: null as unknown as THREE.Mesh, point: new THREE.Vector3() }) => {\n  selectedObject = object;\n  const editor = $('object-editor');\n  const empty = $('object-empty');\n  if (!object) { editor.hidden = true; empty.hidden = false; return; }\n  empty.hidden = true; editor.hidden = false;\n  const kind = String(object.userData.kind ?? 'object');\n  $('object-name').textContent = String(object.userData.name || (kind === 'building' ? 'Unnamed building' : kind));\n  $('object-osm-id').textContent = String(object.userData.osmId ?? '—');\n  const heightControl = $('building-height') as HTMLInputElement;\n  const editable = kind === 'building';\n  heightControl.disabled = !editable;\n  $('reset-height').toggleAttribute('disabled', !editable);\n  originalBuildingHeight = Number(object.userData.height ?? 10);\n  heightControl.value = String(originalBuildingHeight);\n  $('height-value').textContent = editable ? originalBuildingHeight.toFixed(1) : 'Not editable';\n  $('height-source').textContent = editable ? (object.userData.heightEstimated ? 'Estimated from building type. Adjust to match reference imagery.' : 'Based on OpenStreetMap height / levels tags.') : 'Height editing is currently available for buildings only.';\n  setStatus(`Selected ${kind} · OSM ${object.userData.osmId ?? 'unknown'}`);\n};\n$('building-height').addEventListener('input', () => {\n  if (!selectedObject || selectedObject.userData.kind !== 'building') return;\n  const value = Number(($('building-height') as HTMLInputElement).value);\n  const base = Number(selectedObject.userData.height ?? originalBuildingHeight);\n  if (!Number.isFinite(value) || base <= 0) return;\n  selectedObject.scale.y = value / base;\n  $('height-value').textContent = value.toFixed(1);\n  selectedObject.userData.editedHeight = value;\n  setStatus(`Building height changed to ${value.toFixed(1)} m`);\n});\n$('reset-height').addEventListener('click', () => {\n  if (!selectedObject || selectedObject.userData.kind !== 'building') return;\n  selectedObject.scale.y = 1;\n  delete selectedObject.userData.editedHeight;\n  ($('building-height') as HTMLInputElement).value = String(originalBuildingHeight);\n  $('height-value').textContent = originalBuildingHeight.toFixed(1);\n  setStatus('Building height restored to original OSM / estimated value.');\n});\n\nfunction setStatus(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
   statusText.textContent = message;
   statusDot.className = `status-dot ${level}`;
 }
@@ -203,4 +213,4 @@ mapView.whenReady().then(() => {
   mapView.map.resize();
   setStatus('Ready. Select a small area in Dhaka to begin.');
 }).catch((error: unknown) => setStatus(error instanceof Error ? error.message : 'Map failed to initialize.', 'error'));
-window.addEventListener('beforeunload', () => { selector.setActive(false); scene.dispose(); mapView.map.remove(); });
+window.addEventListener('beforeunload', () => { selector.setActive(false); picker.dispose(); scene.dispose(); mapView.map.remove(); });
