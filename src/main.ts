@@ -79,7 +79,46 @@ let selectedObject: THREE.Mesh | null = null;
 let originalBuildingHeight = 0;
 let busy = false;
 
-picker.onSelect = (picked) => {\n  const object = picked?.object ?? null;\n  selectedObject = object;\n  const editor = $('object-editor');\n  const empty = $('object-empty');\n  if (!object) { editor.hidden = true; empty.hidden = false; return; }\n  empty.hidden = true; editor.hidden = false;\n  const kind = String(object.userData.kind ?? 'object');\n  $('object-name').textContent = String(object.userData.name || (kind === 'building' ? 'Unnamed building' : kind));\n  $('object-osm-id').textContent = String(object.userData.osmId ?? '—');\n  const heightControl = $('building-height') as HTMLInputElement;\n  const editable = kind === 'building';\n  heightControl.disabled = !editable;\n  $('reset-height').toggleAttribute('disabled', !editable);\n  originalBuildingHeight = Number(object.userData.height ?? 10);\n  heightControl.value = String(originalBuildingHeight);\n  $('height-value').textContent = editable ? originalBuildingHeight.toFixed(1) : 'Not editable';\n  $('height-source').textContent = editable ? (object.userData.heightEstimated ? 'Estimated from building type. Adjust to match reference imagery.' : 'Based on OpenStreetMap height / levels tags.') : 'Height editing is currently available for buildings only.';\n  setStatus(`Selected ${kind} · OSM ${object.userData.osmId ?? 'unknown'}`);\n};\n$('building-height').addEventListener('input', () => {\n  if (!selectedObject || selectedObject.userData.kind !== 'building') return;\n  const value = Number(($('building-height') as HTMLInputElement).value);\n  const base = Number(selectedObject.userData.height ?? originalBuildingHeight);\n  if (!Number.isFinite(value) || base <= 0) return;\n  selectedObject.scale.y = value / base;\n  $('height-value').textContent = value.toFixed(1);\n  selectedObject.userData.editedHeight = value;\n  setStatus(`Building height changed to ${value.toFixed(1)} m`);\n});\n$('reset-height').addEventListener('click', () => {\n  if (!selectedObject || selectedObject.userData.kind !== 'building') return;\n  selectedObject.scale.y = 1;\n  delete selectedObject.userData.editedHeight;\n  ($('building-height') as HTMLInputElement).value = String(originalBuildingHeight);\n  $('height-value').textContent = originalBuildingHeight.toFixed(1);\n  setStatus('Building height restored to original OSM / estimated value.');\n});\n\nfunction setStatus(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
+picker.onSelect = (picked) => {
+  const object = picked?.object ?? null;
+  selectedObject = object;
+  const editor = $('object-editor');
+  const empty = $('object-empty');
+  if (!object) { editor.hidden = true; empty.hidden = false; return; }
+  empty.hidden = true; editor.hidden = false;
+  const kind = String(object.userData.kind ?? 'object');
+  $('object-name').textContent = String(object.userData.name || (kind === 'building' ? 'Unnamed building' : kind));
+  $('object-osm-id').textContent = String(object.userData.osmId ?? '—');
+  const heightControl = $('building-height') as HTMLInputElement;
+  const editable = kind === 'building';
+  heightControl.disabled = !editable;
+  $('reset-height').toggleAttribute('disabled', !editable);
+  originalBuildingHeight = Number(object.userData.height ?? 10);
+  heightControl.value = String(originalBuildingHeight);
+  $('height-value').textContent = editable ? originalBuildingHeight.toFixed(1) : 'Not editable';
+  $('height-source').textContent = editable ? (object.userData.heightEstimated ? 'Estimated from building type. Adjust to match reference imagery.' : 'Based on OpenStreetMap height / levels tags.') : 'Height editing is currently available for buildings only.';
+  setStatus(`Selected ${kind} · OSM ${object.userData.osmId ?? 'unknown'}`);
+};
+$('building-height').addEventListener('input', () => {
+  if (!selectedObject || selectedObject.userData.kind !== 'building') return;
+  const value = Number(($('building-height') as HTMLInputElement).value);
+  const base = Number(selectedObject.userData.height ?? originalBuildingHeight);
+  if (!Number.isFinite(value) || base <= 0) return;
+  selectedObject.scale.y = value / base;
+  $('height-value').textContent = value.toFixed(1);
+  selectedObject.userData.editedHeight = value;
+  setStatus(`Building height changed to ${value.toFixed(1)} m`);
+});
+$('reset-height').addEventListener('click', () => {
+  if (!selectedObject || selectedObject.userData.kind !== 'building') return;
+  selectedObject.scale.y = 1;
+  delete selectedObject.userData.editedHeight;
+  ($('building-height') as HTMLInputElement).value = String(originalBuildingHeight);
+  $('height-value').textContent = originalBuildingHeight.toFixed(1);
+  setStatus('Building height restored to original OSM / estimated value.');
+});
+
+function setStatus(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
   statusText.textContent = message;
   statusDot.className = `status-dot ${level}`;
 }
