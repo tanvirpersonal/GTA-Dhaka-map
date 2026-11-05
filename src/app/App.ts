@@ -35,6 +35,7 @@ const TEMPLATE = `
     <input id="file-open" type="file" accept=".json,application/json" hidden />
     <button id="btn-import" disabled title="Import OpenStreetMap data for the selected area">Import</button>
     <button id="btn-generate" disabled title="Build the 3D city from imported data">Generate</button>
+    <button id="btn-walk" disabled title="Explore the generated city on foot">Walk mode</button>
     <button id="btn-undo" disabled title="Undo (Ctrl+Z)">Undo</button>
     <button id="btn-redo" disabled title="Redo (Ctrl+Shift+Z)">Redo</button>
     <button id="btn-save" disabled title="Save project (Ctrl+S)">Save</button>
@@ -115,6 +116,12 @@ export class App {
     this.mapView = new MapView(el(root, '#map'));
     this.selector = new AreaSelector(this.mapView.map);
     this.scene = new SceneManager(el(root, '#viewport'));
+    this.scene.onWalkModeChange = (active) => {
+      const button = el<HTMLButtonElement>(root, '#btn-walk');
+      button.textContent = active ? 'Exit walk' : 'Walk mode';
+      button.classList.toggle('active', active);
+      store.setStatus('info', active ? 'Walk mode: click the 3D view, then use WASD / arrows. Mouse looks around; Shift runs; Esc exits.' : 'Walk mode off.');
+    };
     this.scene.onFps = (fps) => {
       el(root, '#status-fps').textContent = `FPS: ${fps}`;
     };
@@ -219,6 +226,7 @@ export class App {
     el(root, '#btn-redo').addEventListener('click', () => this.redo());
 
     el(root, '#btn-generate').addEventListener('click', () => void this.runGenerate());
+    el(root, '#btn-walk').addEventListener('click', () => this.scene.setWalkMode(!this.scene.isWalkMode));
     el(root, '#btn-export').addEventListener('click', () => void this.runExport(false));
     el(root, '#btn-export-zip').addEventListener('click', () => void this.runExport(true));
 
@@ -296,6 +304,7 @@ export class App {
     try {
       const { group, stats } = generateCity(w.result, w.bounds, this.history.current, this.layers);
       this.scene.setCity(group, frame);
+      (el(this.root, '#btn-walk') as HTMLButtonElement).disabled = stats.meshes === 0;
       el(this.root, '#placeholder').style.display = 'none';
       this.selection.refreshHighlight();
       (el(this.root, '#btn-export') as HTMLButtonElement).disabled = stats.meshes === 0;
