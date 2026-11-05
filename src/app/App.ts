@@ -8,7 +8,7 @@ import { assignFeaturesToBlocks, createCityBlocks, type CityBlock } from '../dat
 import { loadBlockProgress, saveBlockProgress, summarizeBlockProgress } from '../data/BlockProgress';
 import { serializeProject } from '../project/ProjectSerializer';
 import { openProjectFile, saveProjectFile } from '../project/ProjectManager';
-import { generateCity } from '../generator/CityGenerator';
+import { generateBlockCity } from '../generator/BlockModelGenerator';
 import { validateForExport } from '../export/ExportValidator';
 import { exportLayersZip } from '../export/LayerExporter';
 import { downloadBlob, exportGLB } from '../export/GLBExporter';
@@ -307,14 +307,7 @@ export class App {
     store.setStatus('info', 'Generating 3D city…');
     await new Promise((r) => setTimeout(r, 30)); // let the status paint before heavy work
     this.setWorking(bounds, result, {}, defaultLayers());
-    const generated = this.regenerate(true);
-    // The current renderer builds the imported selection as one complete scene.
-    // Mark its constituent blocks complete only after that full build succeeds.
-    if (generated) {
-      this.cityBlocks = this.cityBlocks.map((block) => ({ ...block, status: 'validated' }));
-      saveBlockProgress(this.cityBlocks);
-      this.renderBlocks();
-    }
+    this.regenerate(true);
   }
 
   /** Make a (bounds, import) pair the active editable project. */
@@ -331,7 +324,14 @@ export class App {
     const w = this.working;
     if (!w) return false;
     try {
-      const { group, stats } = generateCity(w.result, w.bounds, this.history.current, this.layers);
+      const blocks = this.cityBlocks.length
+        ? this.cityBlocks
+        : assignFeaturesToBlocks(createCityBlocks(w.bounds), w.result.features);
+      const generated = generateBlockCity(w.result, w.bounds, blocks, this.history.current, this.layers);
+      const { group, stats } = generated;
+      this.cityBlocks = generated.blocks;
+      saveBlockProgress(this.cityBlocks);
+      this.renderBlocks();
       this.scene.setCity(group, frame);
       (el(this.root, '#btn-walk') as HTMLButtonElement).disabled = stats.meshes === 0;
       el(this.root, '#placeholder').style.display = 'none';
@@ -342,7 +342,7 @@ export class App {
       if (frame) {
         store.setStatus(
           stats.meshes ? 'info' : 'warn',
-          stats.meshes ? `City ready: ${stats.triangles.toLocaleString()} triangles, ${stats.meshes} layers. Click a feature to edit.` : 'Nothing to generate in this area.',
+          stats.meshes ? `Primary city model ready: ${this.cityBlocks.length} block units, ${stats.triangles.toLocaleString()} triangles. Click a feature to edit.` : 'Nothing to generate in this area.',
         );
       }
     } catch (err) {
@@ -419,7 +419,7 @@ export class App {
       const p = await openProjectFile(file);
       this.setWorking(p.bounds, p.import, p.overrides, p.layers);
       this.importResult = p.import;
-      this.cityBlocks = assignFeaturesToBlocks(createCityBlocks(p.bounds), p.import.features);
+      this.cityBlocks = loadBlockProgress(assignFeaturesToBlocks(createCityBlocks(p.bounds), p.import.features));
       this.mapView.setCityBlocks(this.cityBlocks);
       this.renderBlocks();
       this.renderImport();
@@ -493,7 +493,7 @@ export class App {
       acc.waterway += b.counts.waterway; acc.water += b.counts.water; acc.green += b.counts.green; return acc;
     }, { building: 0, road: 0, path: 0, waterway: 0, water: 0, green: 0 });
     info.innerHTML = '<dt>Total blocks</dt><dd>' + total + '</dd><dt>Blocks with data</dt><dd>' + populated + '</dd><dt>Validated</dt><dd>' + progress.validated + '</dd><dt>Pending</dt><dd>' + progress.pending + '</dd><dt>Failed</dt><dd>' + progress.failed + '</dd><dt>Buildings</dt><dd>' + sum.building + '</dd><dt>Road segments</dt><dd>' + sum.road + '</dd><dt>Other features</dt><dd>' + (sum.path + sum.waterway + sum.water + sum.green) + '</dd>';
-    list.textContent = 'Grid shown on map. Each cell is a separate future generation unit (250 m target size).'
+    list.textContent = 'Each 250 m cell is now built as its own 3D model group. All blocks share one origin so neighbouring geometry stays aligned.'
   }
 
   private renderImport(): void {
