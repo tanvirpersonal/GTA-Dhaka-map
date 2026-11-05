@@ -426,7 +426,7 @@ export class App {
     }
   }
 
-  private renderImport(): void {
+  private setImportProgress(percent: number, label: string, visible: boolean): void {\n    const panel = this.root.querySelector<HTMLElement>('#import-progress');\n    const fill = this.root.querySelector<HTMLElement>('#import-progress-fill');\n    const value = this.root.querySelector<HTMLElement>('#import-progress-value');\n    const text = this.root.querySelector<HTMLElement>('#import-progress-label');\n    const track = this.root.querySelector<HTMLElement>('#import-progress-track');\n    if (!panel || !fill || !value || !text || !track) return;\n    const safe = Math.max(0, Math.min(100, Math.round(percent)));\n    panel.hidden = !visible;\n    fill.style.width = `${safe}%`;\n    value.textContent = `${safe}%`;\n    text.textContent = label;\n    track.setAttribute('aria-valuenow', String(safe));\n  }\n\n  private renderImport(): void {
     const info = el(this.root, '#imp-info');
     const notice = el(this.root, '#imp-notice');
     const r = this.importResult;
