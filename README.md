@@ -513,31 +513,31 @@ The Unreal import guide must document scale, axis orientation, collision setup, 
 ## 15. Development roadmap
 
 ### Milestone 0 — Foundation
-- [ ] Initialize Vite + TypeScript.
-- [ ] Add Three.js and MapLibre.
+- [x] Initialize Vite + TypeScript.
+- [x] Add Three.js and MapLibre.
 - [ ] Set up linting, formatting and basic tests.
-- [ ] Create dark editor shell and responsive layout.
-- [ ] Configure GitHub Pages deployment.
+- [x] Create dark editor shell and responsive layout.
+- [x] Configure GitHub Pages deployment.
 
 ### Milestone 1 — Dhaka map and selection
-- [ ] Show an interactive Dhaka map.
-- [ ] Add rectangle area selection.
-- [ ] Store and validate selected bounds.
-- [ ] Show selected area coordinates and size.
+- [x] Show an interactive Dhaka map.
+- [x] Add rectangle area selection.
+- [x] Store and validate selected bounds.
+- [x] Show selected area coordinates and size.
 
 ### Milestone 2 — OSM import
-- [ ] Build bounded OSM query requests.
-- [ ] Add loading, retry and rate-limit handling.
-- [ ] Parse buildings, roads, paths, water and green areas.
-- [ ] Show feature counts and import warnings.
-- [ ] Cache small imports locally.
+- [x] Build bounded OSM query requests.
+- [x] Add loading, retry and rate-limit handling.
+- [x] Parse buildings, roads, paths, water and green areas.
+- [x] Show feature counts and import warnings.
+- [x] Cache small imports locally.
 
 ### Milestone 3 — 3D generation
-- [ ] Convert geographic coordinates to local metric coordinates.
-- [ ] Generate building extrusions.
-- [ ] Generate road surfaces.
-- [ ] Generate basic water and green-area surfaces.
-- [ ] Add camera controls, grid and lighting.
+- [x] Convert geographic coordinates to local metric coordinates.
+- [x] Generate building extrusions.
+- [x] Generate road surfaces.
+- [x] Generate basic water and green-area surfaces.
+- [x] Add camera controls, grid and lighting.
 
 ### Milestone 4 — Editor
 - [ ] Select generated buildings and roads.
@@ -547,7 +547,7 @@ The Unreal import guide must document scale, axis orientation, collision setup, 
 - [ ] Save and reopen project JSON.
 
 ### Milestone 5 — Export
-- [ ] Export GLB/GLTF.
+- [x] Export GLB/GLTF.
 - [ ] Export selected tiles separately.
 - [ ] Validate geometry and material references.
 - [ ] Write Unreal Engine import documentation.
