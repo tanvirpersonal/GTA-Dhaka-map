@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { LocalProjection } from '../data/CoordinateTransform';
 import type { Bounds } from '../types/editor';
 import type { AreaFeature, BuildingFeature, ImportResult, LineFeature } from '../types/features';
+import { defaultLayers, type Layers, type Overrides } from '../types/project';
 import { generateAreas } from './AreaGenerator';
 import { generateBuildings } from './BuildingGenerator';
 import { generateLines } from './RoadGenerator';
@@ -19,7 +20,12 @@ export interface GeneratedCity {
 }
 
 /** Turn imported features into a 3D city group in local metres (Y up, origin at selection centre). */
-export function generateCity(result: ImportResult, bounds: Bounds): GeneratedCity {
+export function generateCity(
+  result: ImportResult,
+  bounds: Bounds,
+  overrides: Overrides = {},
+  layers: Layers = defaultLayers(),
+): GeneratedCity {
   const proj = LocalProjection.fromBounds(bounds);
   const group = new THREE.Group();
   group.name = 'dhaka-city';
@@ -28,18 +34,24 @@ export function generateCity(result: ImportResult, bounds: Bounds): GeneratedCit
   const lines = (k: 'road' | 'path' | 'waterway') => pick<LineFeature>(k);
 
   const parts = [
-    generateAreas(pick<AreaFeature>('green'), proj, { name: 'green', color: 0x2f5d3a, y: 0.01 }),
-    generateAreas(pick<AreaFeature>('water'), proj, { name: 'water', color: 0x2a5f8f, y: 0.02 }),
-    generateLines(lines('waterway'), proj, { name: 'waterways', color: 0x2a5f8f, y: 0.03 }),
-    generateLines(lines('road'), proj, { name: 'roads', color: 0x3a3d44, y: 0.06 }),
-    generateLines(lines('path'), proj, { name: 'paths', color: 0x8a8272, y: 0.09 }),
-    generateBuildings(pick<BuildingFeature>('building'), proj),
+    generateAreas(pick<AreaFeature>('green'), proj, { name: 'green', color: layers.green.color, y: 0.01 }),
+    generateAreas(pick<AreaFeature>('water'), proj, { name: 'water', color: layers.water.color, y: 0.02 }),
+    generateLines(lines('waterway'), proj, { name: 'waterways', color: layers.waterways.color, y: 0.03 }, overrides),
+    generateLines(lines('road'), proj, { name: 'roads', color: layers.roads.color, y: 0.06 }, overrides),
+    generateLines(lines('path'), proj, { name: 'paths', color: layers.paths.color, y: 0.09 }, overrides),
+    generateBuildings(pick<BuildingFeature>('building'), proj, overrides),
   ];
 
   let triangles = 0;
   let meshes = 0;
   for (const m of parts) {
     if (!m) continue;
+    const layer = layers[m.name as keyof Layers];
+    if (layer) {
+      m.visible = layer.visible;
+      // Buildings carry per-vertex colour; the layer colour tints it.
+      if (m.name === 'buildings') (m.material as THREE.MeshStandardMaterial).color.setHex(layer.color);
+    }
     group.add(m);
     meshes++;
     const g = m.geometry;
