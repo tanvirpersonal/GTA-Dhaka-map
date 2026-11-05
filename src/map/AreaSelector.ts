@@ -1,4 +1,4 @@
-import type maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import type { Bounds } from '../types/editor';
 import { boundsFromCorners } from './DhakaBounds';
 
@@ -8,7 +8,7 @@ const LINE_ID = 'selection-line';
 
 type Corner = { lng: number; lat: number };
 
-function toGeoJSON(b: Bounds): GeoJSON.Feature<GeoJSON.Polygon> {
+function toGeoJSON(b: Bounds) {
   return {
     type: 'Feature',
     properties: {},
