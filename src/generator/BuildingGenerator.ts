@@ -59,6 +59,7 @@ export function generateBuildings(
 ): THREE.Mesh | null {
   const geos: THREE.BufferGeometry[] = [];
   const ids: string[] = [];
+  const walkColliders: Array<{ points: Array<[number, number]> }> = [];
   const color = new THREE.Color();
 
   for (const f of features) {
@@ -86,6 +87,8 @@ export function generateBuildings(
     g.deleteAttribute('uv');
     geos.push(g.index ? g.toNonIndexed() : g);
     ids.push(f.id);
+    // Keep the original footprint as a lightweight walking collider (X=east, Z=-north).
+    walkColliders.push({ points: f.outer.slice(0, -1).map((p) => { const [east, north] = proj.toLocal(p); return [east, -north] as [number, number]; }) });
   }
 
   if (geos.length === 0) return null;
@@ -102,5 +105,6 @@ export function generateBuildings(
   const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.05 }));
   mesh.name = 'buildings';
   mesh.userData.pick = { ids, starts, total: acc } satisfies PickMap;
+  mesh.userData.walkColliders = walkColliders;
   return mesh;
 }
