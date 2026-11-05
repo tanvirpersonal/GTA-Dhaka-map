@@ -8,6 +8,8 @@ import { getCached, putCached } from '../data/ImportCache';
 import { serializeProject } from '../project/ProjectSerializer';
 import { openProjectFile, saveProjectFile } from '../project/ProjectManager';
 import { generateCity } from '../generator/CityGenerator';
+import { validateForExport } from '../export/ExportValidator';
+import { exportLayersZip } from '../export/LayerExporter';
 import { downloadBlob, exportGLB } from '../export/GLBExporter';
 import type { ImportResult, MapFeature } from '../types/features';
 import { defaultLayers, type FeatureOverride, type LayerId, type LayerSettings, type Layers } from '../types/project';
@@ -38,6 +40,7 @@ const TEMPLATE = `
     <button id="btn-redo" disabled title="Redo (Ctrl+Shift+Z)">Redo</button>
     <button id="btn-save" disabled title="Save project (Ctrl+S)">Save</button>
     <button id="btn-export" disabled title="Download the city as a GLB file">Export GLB</button>
+    <button id="btn-export-zip" disabled title="Download each layer as a separate GLB in a ZIP, with a manifest">Export layers</button>
     <span class="spacer"></span>
     <span class="hint">Select area → Import → Generate → Export</span>
   </header>
@@ -217,7 +220,8 @@ export class App {
     el(root, '#btn-redo').addEventListener('click', () => this.redo());
 
     el(root, '#btn-generate').addEventListener('click', () => void this.runGenerate());
-    el(root, '#btn-export').addEventListener('click', () => void this.runExport());
+    el(root, '#btn-export').addEventListener('click', () => void this.runExport(false));
+    el(root, '#btn-export-zip').addEventListener('click', () => void this.runExport(true));
 
     window.addEventListener('resize', () => this.mapView.resize());
   }
@@ -301,6 +305,7 @@ export class App {
       el(this.root, '#placeholder').style.display = 'none';
       this.selection.refreshHighlight();
       (el(this.root, '#btn-export') as HTMLButtonElement).disabled = stats.meshes === 0;
+      (el(this.root, '#btn-export-zip') as HTMLButtonElement).disabled = stats.meshes === 0;
       (el(this.root, '#btn-save') as HTMLButtonElement).disabled = false;
       if (frame) {
         store.setStatus(
@@ -389,14 +394,30 @@ export class App {
     }
   }
 
-  private async runExport(): Promise<void> {
+  private async runExport(asZip: boolean): Promise<void> {
     const city = this.scene.currentCity;
-    if (!city) return;
+    const w = this.working;
+    if (!city || !w) return;
     try {
-      store.setStatus('info', 'Exporting GLB…');
-      const data = await exportGLB(city);
-      downloadBlob(data, `dhaka-area-${Date.now()}.glb`);
-      store.setStatus('info', `Exported GLB (${(data.byteLength / 1048576).toFixed(2)} MB).`);
+      const report = validateForExport(city);
+      if (!report.ok) {
+        store.setStatus('error', `Export blocked: ${report.errors[0]}`);
+        return;
+      }
+      store.setStatus('info', 'Exporting…');
+      const stamp = Date.now();
+      let size: number;
+      if (asZip) {
+        const zip = await exportLayersZip(city, w.bounds);
+        downloadBlob(zip.buffer as ArrayBuffer, `dhaka-layers-${stamp}.zip`, 'application/zip');
+        size = zip.byteLength;
+      } else {
+        const data = await exportGLB(city);
+        downloadBlob(data, `dhaka-area-${stamp}.glb`);
+        size = data.byteLength;
+      }
+      const note = report.warnings.length ? ` Warning: ${report.warnings[0]}` : '';
+      store.setStatus(report.warnings.length ? 'warn' : 'info', `Exported ${(size / 1048576).toFixed(2)} MB (${report.triangles.toLocaleString()} triangles).${note}`);
     } catch (err) {
       store.setStatus('error', `Export failed: ${(err as Error).message}`);
     }
