@@ -252,6 +252,7 @@ export class App {
     if (!bounds) return;
     const btn = el<HTMLButtonElement>(this.root, '#btn-import');
     this.importResult = null;
+    this.setImportProgress(0, 'Preparing map import…', true);
     this.renderImport();
     try {
       this.abort = new AbortController();
@@ -259,18 +260,22 @@ export class App {
       store.setStatus('info', 'Importing from OpenStreetMap…');
       const result = await importTiled(bounds, {
         signal: this.abort.signal,
-        onProgress: ({ done, total, fromCache }) =>
-          store.setStatus('info', `Imported tile ${done}/${total}${fromCache ? ' (cached)' : ''}…`),
+        onProgress: ({ done, total, fromCache }) => {
+          const percent = Math.round((done / total) * 100);
+          this.setImportProgress(percent, `Importing map tiles ${done}/${total}${fromCache ? ' · cached' : ''}`, true);
+          store.setStatus('info', `Map import ${percent}% · tile ${done}/${total}${fromCache ? ' (cached)' : ''}`);
+        },
         onRetry: ({ attempt, reason, delayMs }) =>
           store.setStatus('warn', `Overpass: ${reason}. Retry ${attempt} in ${Math.round(delayMs / 1000)}s…`),
       });
       this.importResult = result;
+      this.setImportProgress(100, 'Map data imported · ready for 3D generation', true);
       const n = result.features.length;
       store.setStatus(result.warnings.length ? 'warn' : 'info', `Imported ${n} feature${n === 1 ? '' : 's'}.`);
     } catch (err) {
       const e = err as Error;
-      if (e.name === 'AbortError') store.setStatus('info', 'Import cancelled.');
-      else store.setStatus('error', err instanceof OSMImportError ? e.message : `Import failed: ${e.message}`);
+      if (e.name === 'AbortError') { this.setImportProgress(0, 'Import cancelled', false); store.setStatus('info', 'Import cancelled.'); }
+      else { this.setImportProgress(0, 'Import failed', false); store.setStatus('error', err instanceof OSMImportError ? e.message : `Import failed: ${e.message}`); }
     } finally {
       this.abort = null;
       btn.textContent = 'Import';
