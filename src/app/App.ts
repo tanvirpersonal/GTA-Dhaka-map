@@ -2,9 +2,8 @@ import { MapView } from '../map/MapView';
 import { AreaSelector } from '../map/AreaSelector';
 import { boundsAreaKm2, boundsSizeMeters, MAX_AREA_KM2, validateSelection } from '../map/DhakaBounds';
 import { SceneManager } from '../renderer/SceneManager';
-import { fetchOSM, OSMImportError } from '../data/OSMClient';
-import { parseOverpass } from '../data/OSMParser';
-import { getCached, putCached } from '../data/ImportCache';
+import { OSMImportError } from '../data/OSMClient';
+import { importTiled } from '../data/TiledImport';
 import { serializeProject } from '../project/ProjectSerializer';
 import { openProjectFile, saveProjectFile } from '../project/ProjectManager';
 import { generateCity } from '../generator/CityGenerator';
@@ -247,21 +246,16 @@ export class App {
     this.importResult = null;
     this.renderImport();
     try {
-      let result = getCached(bounds);
-      if (result) {
-        store.setStatus('info', 'Loaded import from local cache.');
-      } else {
-        this.abort = new AbortController();
-        btn.textContent = 'Cancel import';
-        store.setStatus('info', 'Importing from OpenStreetMap…');
-        const raw = await fetchOSM(bounds, {
-          signal: this.abort.signal,
-          onRetry: ({ attempt, reason, delayMs }) =>
-            store.setStatus('warn', `Overpass: ${reason}. Retry ${attempt} in ${Math.round(delayMs / 1000)}s…`),
-        });
-        result = parseOverpass(raw);
-        putCached(bounds, result);
-      }
+      this.abort = new AbortController();
+      btn.textContent = 'Cancel import';
+      store.setStatus('info', 'Importing from OpenStreetMap…');
+      const result = await importTiled(bounds, {
+        signal: this.abort.signal,
+        onProgress: ({ done, total, fromCache }) =>
+          store.setStatus('info', `Imported tile ${done}/${total}${fromCache ? ' (cached)' : ''}…`),
+        onRetry: ({ attempt, reason, delayMs }) =>
+          store.setStatus('warn', `Overpass: ${reason}. Retry ${attempt} in ${Math.round(delayMs / 1000)}s…`),
+      });
       this.importResult = result;
       const n = result.features.length;
       store.setStatus(result.warnings.length ? 'warn' : 'info', `Imported ${n} feature${n === 1 ? '' : 's'}.`);
