@@ -1,7 +1,7 @@
 /** Longitude/latitude pair in WGS84 degrees. */
 export type LonLat = [lon: number, lat: number];
 
-export type FeatureKind = 'building' | 'road' | 'path' | 'water' | 'green';
+export type FeatureKind = 'building' | 'road' | 'path' | 'waterway' | 'water' | 'green';
 
 interface BaseFeature {
   /** OSM element id, prefixed by type (e.g. "way/123"). */
@@ -23,7 +23,7 @@ export interface BuildingFeature extends BaseFeature {
 }
 
 export interface LineFeature extends BaseFeature {
-  kind: 'road' | 'path';
+  kind: 'road' | 'path' | 'waterway';
   points: LonLat[];
   /** OSM highway value, e.g. "primary", "footway". */
   highway: string;
@@ -49,6 +49,7 @@ export interface FeatureCounts {
   building: number;
   road: number;
   path: number;
+  waterway: number;
   water: number;
   green: number;
 }
