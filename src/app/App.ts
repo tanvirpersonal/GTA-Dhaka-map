@@ -5,6 +5,7 @@ import { SceneManager } from '../renderer/SceneManager';
 import { OSMImportError } from '../data/OSMClient';
 import { importTiled } from '../data/TiledImport';
 import { assignFeaturesToBlocks, createCityBlocks, type CityBlock } from '../data/CityBlockGrid';
+import { loadBlockProgress, saveBlockProgress, summarizeBlockProgress } from '../data/BlockProgress';
 import { serializeProject } from '../project/ProjectSerializer';
 import { openProjectFile, saveProjectFile } from '../project/ProjectManager';
 import { generateCity } from '../generator/CityGenerator';
@@ -73,7 +74,7 @@ const TEMPLATE = `
     </section>
     <section>
       <h2>City blocks · 250 m</h2>
-      <div class="card"><dl class="kv" id="block-info"><dt>Status</dt><dd>Import an area to create blocks</dd></dl><div id="block-list" class="hint"></div></div>
+      <div class="card"><div class="progress-meta"><span>3D block generation</span><strong id="block-progress-value">0%</strong></div><div class="progress-track" id="block-progress-track" role="progressbar" aria-label="Validated city blocks" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="block-progress-fill"></div></div><dl class="kv" id="block-info"><dt>Status</dt><dd>Import an area to create blocks</dd></dl><div id="block-list" class="hint"></div></div>
     </section>
     <section>
       <h2>Selected area</h2>
@@ -282,7 +283,7 @@ export class App {
           store.setStatus('warn', `Overpass: ${reason}. Retry ${attempt} in ${Math.round(delayMs / 1000)}s…`),
       });
       this.importResult = result;
-      this.cityBlocks = assignFeaturesToBlocks(createCityBlocks(bounds), result.features);
+      this.cityBlocks = loadBlockProgress(assignFeaturesToBlocks(createCityBlocks(bounds), result.features));
       this.mapView.setCityBlocks(this.cityBlocks);
       this.renderBlocks();
       this.setImportProgress(100, 'Map data imported · ready for 3D generation', true);
@@ -307,6 +308,13 @@ export class App {
     await new Promise((r) => setTimeout(r, 30)); // let the status paint before heavy work
     this.setWorking(bounds, result, {}, defaultLayers());
     this.regenerate(true);
+    // The current renderer builds the imported selection as one complete scene.
+    // Mark its constituent blocks complete only after that full build succeeds.
+    if (this.scene.currentCity) {
+      this.cityBlocks = this.cityBlocks.map((block) => ({ ...block, status: 'validated' }));
+      saveBlockProgress(this.cityBlocks);
+      this.renderBlocks();
+    }
   }
 
   /** Make a (bounds, import) pair the active editable project. */
@@ -471,11 +479,18 @@ export class App {
     if (!this.cityBlocks.length) { info.innerHTML = '<dt>Status</dt><dd>No blocks yet</dd>'; list.textContent = 'Select an area and import OSM data.'; return; }
     const total = this.cityBlocks.length;
     const populated = this.cityBlocks.filter((b) => b.featureIds.length > 0).length;
+    const progress = summarizeBlockProgress(this.cityBlocks);
+    const progressFill = el<HTMLElement>(this.root, '#block-progress-fill');
+    const progressValue = el<HTMLElement>(this.root, '#block-progress-value');
+    const progressTrack = el<HTMLElement>(this.root, '#block-progress-track');
+    progressFill.style.width = progress.percent + '%';
+    progressValue.textContent = progress.percent + '%';
+    progressTrack.setAttribute('aria-valuenow', String(progress.percent));
     const sum = this.cityBlocks.reduce((acc, b) => {
       acc.building += b.counts.building; acc.road += b.counts.road; acc.path += b.counts.path;
       acc.waterway += b.counts.waterway; acc.water += b.counts.water; acc.green += b.counts.green; return acc;
     }, { building: 0, road: 0, path: 0, waterway: 0, water: 0, green: 0 });
-    info.innerHTML = '<dt>Total blocks</dt><dd>' + total + '</dd><dt>Blocks with data</dt><dd>' + populated + '</dd><dt>Buildings</dt><dd>' + sum.building + '</dd><dt>Road segments</dt><dd>' + sum.road + '</dd><dt>Other features</dt><dd>' + (sum.path + sum.waterway + sum.water + sum.green) + '</dd>';
+    info.innerHTML = '<dt>Total blocks</dt><dd>' + total + '</dd><dt>Blocks with data</dt><dd>' + populated + '</dd><dt>Validated</dt><dd>' + progress.validated + '</dd><dt>Pending</dt><dd>' + progress.pending + '</dd><dt>Failed</dt><dd>' + progress.failed + '</dd><dt>Buildings</dt><dd>' + sum.building + '</dd><dt>Road segments</dt><dd>' + sum.road + '</dd><dt>Other features</dt><dd>' + (sum.path + sum.waterway + sum.water + sum.green) + '</dd>;
     list.textContent = 'Grid shown on map. Each cell is a separate future generation unit (250 m target size).'
   }
 
