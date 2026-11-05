@@ -7,7 +7,14 @@ import { parseOverpass } from '../data/OSMParser';
 import { getCached, putCached } from '../data/ImportCache';
 import { generateCity } from '../generator/CityGenerator';
 import { downloadBlob, exportGLB } from '../export/GLBExporter';
-import type { ImportResult } from '../types/features';
+import type { ImportResult, MapFeature } from '../types/features';
+import { defaultLayers, type FeatureOverride, type LayerId, type LayerSettings, type Layers } from '../types/project';
+import { EditHistory } from '../editor/EditHistory';
+import { SelectionManager } from '../editor/SelectionManager';
+import { resolveHeight } from '../generator/BuildingGenerator';
+import { resolveWidth } from '../generator/RoadGenerator';
+import { LayersPanel } from '../ui/panels/LayersPanel';
+import { PropertiesPanel, type PropertyTarget } from '../ui/panels/PropertiesPanel';
 import { store } from './state';
 import type { Bounds } from '../types/editor';
 
@@ -23,7 +30,9 @@ const TEMPLATE = `
     <div class="brand"><img src="${import.meta.env.BASE_URL}favicon.svg" alt="" />DHAKA WORLD BUILDER</div>
     <button id="btn-import" disabled title="Import OpenStreetMap data for the selected area">Import</button>
     <button id="btn-generate" disabled title="Build the 3D city from imported data">Generate</button>
-    <button id="btn-save" disabled title="Milestone 4">Save</button>
+    <button id="btn-undo" disabled title="Undo (Ctrl+Z)">Undo</button>
+    <button id="btn-redo" disabled title="Redo (Ctrl+Shift+Z)">Redo</button>
+    <button id="btn-save" disabled title="Save project (Ctrl+S)">Save</button>
     <button id="btn-export" disabled title="Download the city as a GLB file">Export GLB</button>
     <span class="spacer"></span>
     <span class="hint">Select area → Import → Generate → Export</span>
@@ -66,8 +75,10 @@ const TEMPLATE = `
   </main>
 
   <aside class="panel right">
-    <h2>Properties</h2>
-    <p class="hint">Select a building or road to edit it. Available from Milestone 4.</p>
+    <h2>Layers</h2>
+    <div id="layers"></div>
+    <h2 style="margin-top:16px">Properties</h2>
+    <div id="props"></div>
   </aside>
 
   <footer class="statusbar">
@@ -84,6 +95,13 @@ export class App {
   private readonly scene: SceneManager;
   private importResult: ImportResult | null = null;
   private abort: AbortController | null = null;
+  /** The data behind the city currently shown (may differ from the live map selection). */
+  private working: { bounds: Bounds; result: ImportResult; byId: Map<string, MapFeature> } | null = null;
+  private readonly history = new EditHistory();
+  private layers: Layers = defaultLayers();
+  private readonly selection: SelectionManager;
+  private readonly props: PropertiesPanel;
+  private readonly layersPanel: LayersPanel;
 
   constructor(private readonly root: HTMLElement) {
     root.innerHTML = TEMPLATE;
@@ -95,6 +113,18 @@ export class App {
       el(root, '#status-fps').textContent = `FPS: ${fps}`;
     };
     this.scene.start();
+
+    this.selection = new SelectionManager(this.scene);
+    this.selection.on('select', () => this.updateProps());
+    this.props = new PropertiesPanel(el(root, '#props'), {
+      onEdit: (id, patch) => this.applyEdit(id, patch),
+      onReset: (id) => {
+        this.history.patch(id, null);
+        this.afterEdit();
+      },
+    });
+    this.layersPanel = new LayersPanel(el(root, '#layers'), (id, next) => this.setLayer(id, next));
+    this.layersPanel.render(this.layers);
 
     this.bindUi();
     this.bindStore();
@@ -148,6 +178,9 @@ export class App {
       if (this.abort) this.abort.abort();
       else void this.runImport();
     });
+
+    el(root, '#btn-undo').addEventListener('click', () => this.undo());
+    el(root, '#btn-redo').addEventListener('click', () => this.redo());
 
     el(root, '#btn-generate').addEventListener('click', () => void this.runGenerate());
     el(root, '#btn-export').addEventListener('click', () => void this.runExport());
@@ -211,18 +244,90 @@ export class App {
     if (!result || !bounds) return;
     store.setStatus('info', 'Generating 3D city…');
     await new Promise((r) => setTimeout(r, 30)); // let the status paint before heavy work
+    this.setWorking(bounds, result, {}, defaultLayers());
+    this.regenerate(true);
+  }
+
+  /** Make a (bounds, import) pair the active editable project. */
+  private setWorking(bounds: Bounds, result: ImportResult, overrides: Record<string, FeatureOverride>, layers: Layers): void {
+    this.working = { bounds, result, byId: new Map(result.features.map((f) => [f.id, f])) };
+    this.history.reset(overrides);
+    this.layers = layers;
+    this.layersPanel.render(layers);
+    this.selection.select(null);
+  }
+
+  /** Rebuild the 3D city from the working data + current edits and layer settings. */
+  private regenerate(frame: boolean): void {
+    const w = this.working;
+    if (!w) return;
     try {
-      const { group, stats } = generateCity(result, bounds);
-      this.scene.setCity(group);
+      const { group, stats } = generateCity(w.result, w.bounds, this.history.current, this.layers);
+      this.scene.setCity(group, frame);
       el(this.root, '#placeholder').style.display = 'none';
+      this.selection.refreshHighlight();
       (el(this.root, '#btn-export') as HTMLButtonElement).disabled = stats.meshes === 0;
-      store.setStatus(
-        stats.meshes ? 'info' : 'warn',
-        stats.meshes ? `City ready: ${stats.triangles.toLocaleString()} triangles, ${stats.meshes} layers.` : 'Nothing to generate in this area.',
-      );
+      if (frame) {
+        store.setStatus(
+          stats.meshes ? 'info' : 'warn',
+          stats.meshes ? `City ready: ${stats.triangles.toLocaleString()} triangles, ${stats.meshes} layers. Click a feature to edit.` : 'Nothing to generate in this area.',
+        );
+      }
     } catch (err) {
       store.setStatus('error', `Generation failed: ${(err as Error).message}`);
     }
+    this.syncHistoryButtons();
+    this.updateProps();
+  }
+
+  private applyEdit(id: string, patch: FeatureOverride): void {
+    const next: FeatureOverride = { ...this.history.current[id], ...patch };
+    if (!next.hidden) delete next.hidden;
+    this.history.patch(id, next);
+    this.afterEdit();
+  }
+
+  private afterEdit(): void {
+    this.regenerate(false);
+  }
+
+  private undo(): void {
+    if (this.history.undo()) this.afterEdit();
+  }
+
+  private redo(): void {
+    if (this.history.redo()) this.afterEdit();
+  }
+
+  private setLayer(id: LayerId, next: LayerSettings): void {
+    this.layers = { ...this.layers, [id]: next };
+    this.regenerate(false);
+  }
+
+  private syncHistoryButtons(): void {
+    (el(this.root, '#btn-undo') as HTMLButtonElement).disabled = !this.history.canUndo;
+    (el(this.root, '#btn-redo') as HTMLButtonElement).disabled = !this.history.canRedo;
+  }
+
+  private updateProps(): void {
+    const sel = this.selection.current;
+    const f = sel && this.working?.byId.get(sel.id);
+    if (!sel || !f) {
+      this.props.show(null);
+      return;
+    }
+    const ov = this.history.current[sel.id];
+    const target: PropertyTarget = {
+      id: sel.id,
+      layer: sel.layer,
+      kind: f.kind,
+      hidden: !!ov?.hidden,
+      edited: !!ov,
+      tags: f.tags,
+    };
+    if (f.kind === 'building') target.heightM = ov?.heightM ?? resolveHeight(f);
+    else if (f.kind === 'road' || f.kind === 'path' || f.kind === 'waterway') target.widthM = ov?.widthM ?? resolveWidth(f);
+    this.props.show(target);
   }
 
   private async runExport(): Promise<void> {
