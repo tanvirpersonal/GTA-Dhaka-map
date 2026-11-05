@@ -232,3 +232,9 @@
   .map-wrap{height:260px}
   .panel.left,.panel.right{overflow:visible}
 }
+
+.inspector-card{margin-top:14px}
+.inspector-card [hidden]{display:none!important}
+.inspector-card input[type="range"]{width:100%;accent-color:var(--accent-2);margin:12px 0 4px}
+.range-labels{display:flex;justify-content:space-between;color:var(--text-dim);font-size:10px}
+.inspector-card button:disabled{opacity:.45;cursor:not-allowed}
