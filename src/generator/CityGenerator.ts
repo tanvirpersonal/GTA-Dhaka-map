@@ -68,7 +68,7 @@ function roadWidth(tags: Record<string, string> = {}): number {
   return widths[tags.highway ?? ''] ?? 6;
 }
 
-function roadRibbon(points: THREE.Vector2[], width: number): THREE.BufferGeometry | null {
+function roadRibbon(points: THREE.Vector2[], width: number, lateralOffset = 0): THREE.BufferGeometry | null {
   if (points.length < 2) return null;
   const vertices: number[] = [];
   const indices: number[] = [];
@@ -98,7 +98,7 @@ export function generateCity(features: OSMFeature[], bounds: Bounds): GeneratedC
   const roadMats = new Map<string, THREE.MeshStandardMaterial>();
   const greenMat = material(0x315c43);
   const waterMat = new THREE.MeshStandardMaterial({ color: 0x245b79, roughness: 0.28, metalness: 0.08 });
-  const stats: GenerationStats = { buildings: 0, roads: 0, greenAreas: 0, waterAreas: 0, skipped: 0 };
+  const stats: GenerationStats = { buildings: 0, roads: 0, sidewalks: 0, intersections: 0, greenAreas: 0, waterAreas: 0, skipped: 0 };\n  const roadEndpoints = new Map<string, { point: THREE.Vector2; count: number; maxRadius: number }>();\n  const sidewalkMat = material(0x77736a);\n  const junctionMat = material(0x343a43);
 
   for (const feature of features) {
     if (feature.type !== 'way') continue;
@@ -164,5 +164,5 @@ export function generateCity(features: OSMFeature[], bounds: Bounds): GeneratedC
       stats.waterAreas++;
     }
   }
-  return { group, stats };
+  for (const junction of roadEndpoints.values()) {\n    if (junction.count < 3) continue;\n    const radius = Math.max(3, junction.maxRadius * 1.12);\n    const geometry = new THREE.CircleGeometry(radius, 16);\n    geometry.rotateX(-Math.PI / 2);\n    const mesh = new THREE.Mesh(geometry, junctionMat);\n    mesh.position.set(junction.point.x, 0.09, junction.point.y);\n    mesh.name = 'Road junction';\n    mesh.userData = { kind: 'junction', connectedRoads: junction.count, radius };\n    group.add(mesh); stats.intersections++;\n  }\n  return { group, stats };
 }
