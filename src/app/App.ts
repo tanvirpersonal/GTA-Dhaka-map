@@ -492,7 +492,7 @@ export class App {
       acc.building += b.counts.building; acc.road += b.counts.road; acc.path += b.counts.path;
       acc.waterway += b.counts.waterway; acc.water += b.counts.water; acc.green += b.counts.green; return acc;
     }, { building: 0, road: 0, path: 0, waterway: 0, water: 0, green: 0 });
-    info.innerHTML = '<dt>Total blocks</dt><dd>' + total + '</dd><dt>Blocks with data</dt><dd>' + populated + '</dd><dt>Validated</dt><dd>' + progress.validated + '</dd><dt>Pending</dt><dd>' + progress.pending + '</dd><dt>Failed</dt><dd>' + progress.failed + '</dd><dt>Buildings</dt><dd>' + sum.building + '</dd><dt>Road segments</dt><dd>' + sum.road + '</dd><dt>Other features</dt><dd>' + (sum.path + sum.waterway + sum.water + sum.green) + '</dd>;
+    info.innerHTML = '<dt>Total blocks</dt><dd>' + total + '</dd><dt>Blocks with data</dt><dd>' + populated + '</dd><dt>Validated</dt><dd>' + progress.validated + '</dd><dt>Pending</dt><dd>' + progress.pending + '</dd><dt>Failed</dt><dd>' + progress.failed + '</dd><dt>Buildings</dt><dd>' + sum.building + '</dd><dt>Road segments</dt><dd>' + sum.road + '</dd><dt>Other features</dt><dd>' + (sum.path + sum.waterway + sum.water + sum.green) + '</dd>';
     list.textContent = 'Grid shown on map. Each cell is a separate future generation unit (250 m target size).'
   }
 
