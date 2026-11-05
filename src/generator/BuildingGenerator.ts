@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { LocalProjection } from '../data/CoordinateTransform';
 import type { BuildingFeature, LonLat } from '../types/features';
+import type { Overrides } from '../types/project';
+import type { PickMap } from './pick';
 
 const LEVEL_HEIGHT_M = 3.2;
 const DEFAULT_HEIGHTS: Record<string, number> = {
@@ -50,14 +52,21 @@ export function ringsToShape(outer: LonLat[], holes: LonLat[][], proj: LocalProj
 }
 
 /** Extrude all buildings into one merged mesh (1 unit = 1 m, Y up). */
-export function generateBuildings(features: BuildingFeature[], proj: LocalProjection): THREE.Mesh | null {
+export function generateBuildings(
+  features: BuildingFeature[],
+  proj: LocalProjection,
+  overrides: Overrides = {},
+): THREE.Mesh | null {
   const geos: THREE.BufferGeometry[] = [];
+  const ids: string[] = [];
   const color = new THREE.Color();
 
   for (const f of features) {
+    const ov = overrides[f.id];
+    if (ov?.hidden) continue;
     const shape = ringsToShape(f.outer, f.holes, proj);
     if (!shape) continue;
-    const height = resolveHeight(f);
+    const height = ov?.heightM ?? resolveHeight(f);
     let g: THREE.BufferGeometry;
     try {
       g = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
@@ -76,14 +85,22 @@ export function generateBuildings(features: BuildingFeature[], proj: LocalProjec
     g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     g.deleteAttribute('uv');
     geos.push(g.index ? g.toNonIndexed() : g);
+    ids.push(f.id);
   }
 
   if (geos.length === 0) return null;
+  const starts: number[] = [];
+  let acc = 0;
+  for (const g of geos) {
+    starts.push(acc);
+    acc += g.getAttribute('position').count;
+  }
   const merged = mergeGeometries(geos, false);
   geos.forEach((g) => g.dispose());
   if (!merged) return null;
   merged.computeVertexNormals();
   const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.05 }));
   mesh.name = 'buildings';
+  mesh.userData.pick = { ids, starts, total: acc } satisfies PickMap;
   return mesh;
 }
