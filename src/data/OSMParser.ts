@@ -63,7 +63,13 @@ export function parseOverpass(res: OverpassResponse): ImportResult {
     return null;
   };
 
-  const pushArea = (id: string, kind: 'building' | 'water' | 'green', tags: Record<string, string>, outer: LonLat[], holes: LonLat[][]) => {
+  const pushArea = (
+    id: string,
+    kind: 'building' | 'water' | 'green',
+    tags: Record<string, string>,
+    outer: LonLat[],
+    holes: LonLat[][],
+  ) => {
     if (kind === 'building') {
       const f: BuildingFeature = {
         id,
@@ -133,8 +139,8 @@ export function parseOverpass(res: OverpassResponse): ImportResult {
     const kind = areaKind(tags);
     if (!kind || !el.members) return;
     const rings = (role: string) =>
-      el.members!
-        .filter((m) => m.role === role && m.geometry && m.geometry.length > 3)
+      el
+        .members!.filter((m) => m.role === role && m.geometry && m.geometry.length > 3)
         .map((m) => toRing(m.geometry!))
         .filter(isClosed);
     const outers = rings('outer');
@@ -154,14 +160,17 @@ export function parseOverpass(res: OverpassResponse): ImportResult {
     else if (el.type === 'relation') handleRelation(el);
   }
 
-  if (skippedOpen > 0) warnings.push({ code: 'open-ring', message: `${skippedOpen} area(s) skipped: ring not closed.` });
-  if (skippedNoGeom > 0) warnings.push({ code: 'no-geometry', message: `${skippedNoGeom} way(s) skipped: no geometry.` });
+  if (skippedOpen > 0)
+    warnings.push({ code: 'open-ring', message: `${skippedOpen} area(s) skipped: ring not closed.` });
+  if (skippedNoGeom > 0)
+    warnings.push({ code: 'no-geometry', message: `${skippedNoGeom} way(s) skipped: no geometry.` });
 
   const counts: FeatureCounts = { building: 0, road: 0, path: 0, waterway: 0, water: 0, green: 0 };
   for (const f of features) counts[f.kind]++;
 
   if (features.length === 0) warnings.push({ code: 'empty', message: 'No features found in this area.' });
-  if (counts.building === 0 && features.length > 0) warnings.push({ code: 'no-buildings', message: 'No buildings found; OSM coverage may be sparse here.' });
+  if (counts.building === 0 && features.length > 0)
+    warnings.push({ code: 'no-buildings', message: 'No buildings found; OSM coverage may be sparse here.' });
 
   return { features, counts, warnings };
 }

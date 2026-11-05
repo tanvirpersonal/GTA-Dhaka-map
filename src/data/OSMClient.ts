@@ -34,7 +34,10 @@ export interface FetchOptions {
 }
 
 export class OSMImportError extends Error {
-  constructor(message: string, readonly retryable = false) {
+  constructor(
+    message: string,
+    readonly retryable = false,
+  ) {
     super(message);
     this.name = 'OSMImportError';
   }

@@ -99,7 +99,10 @@ export function generateBuildings(
   geos.forEach((g) => g.dispose());
   if (!merged) return null;
   merged.computeVertexNormals();
-  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.05 }));
+  const mesh = new THREE.Mesh(
+    merged,
+    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.05 }),
+  );
   mesh.name = 'buildings';
   mesh.userData.pick = { ids, starts, total: acc } satisfies PickMap;
   return mesh;

@@ -26,7 +26,10 @@ const make = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?
 
 /** Right-hand panel for editing the selected building / road. All text is set via textContent (OSM tags are untrusted). */
 export class PropertiesPanel {
-  constructor(private readonly root: HTMLElement, private readonly handlers: PropertiesHandlers) {
+  constructor(
+    private readonly root: HTMLElement,
+    private readonly handlers: PropertiesHandlers,
+  ) {
     this.show(null);
   }
 
@@ -40,8 +43,14 @@ export class PropertiesPanel {
     const title = t.tags.name || t.tags['name:en'] || `${t.kind} ${t.id}`;
     this.root.append(make('div', 'prop-title', title), make('div', 'hint', `${t.kind} · ${t.id}`));
 
-    if (t.heightM !== undefined) this.root.append(this.numberField('Height (m)', t.heightM, 2.5, 400, 0.5, (v) => this.handlers.onEdit(t.id, { heightM: v })));
-    if (t.widthM !== undefined) this.root.append(this.numberField('Width (m)', t.widthM, 0.5, 60, 0.5, (v) => this.handlers.onEdit(t.id, { widthM: v })));
+    if (t.heightM !== undefined)
+      this.root.append(
+        this.numberField('Height (m)', t.heightM, 2.5, 400, 0.5, (v) => this.handlers.onEdit(t.id, { heightM: v })),
+      );
+    if (t.widthM !== undefined)
+      this.root.append(
+        this.numberField('Width (m)', t.widthM, 0.5, 60, 0.5, (v) => this.handlers.onEdit(t.id, { widthM: v })),
+      );
 
     const row = make('div', 'tool-row');
     const hide = make('button', undefined, t.hidden ? 'Show' : 'Hide');
@@ -60,7 +69,14 @@ export class PropertiesPanel {
     }
   }
 
-  private numberField(label: string, value: number, min: number, max: number, step: number, onCommit: (v: number) => void): HTMLElement {
+  private numberField(
+    label: string,
+    value: number,
+    min: number,
+    max: number,
+    step: number,
+    onCommit: (v: number) => void,
+  ): HTMLElement {
     const wrap = make('label', 'field');
     const input = make('input');
     input.type = 'number';

@@ -12,7 +12,10 @@ const M_PER_DEG_LON_EQ = 111320;
 export class LocalProjection {
   private readonly cosLat: number;
 
-  constructor(readonly originLon: number, readonly originLat: number) {
+  constructor(
+    readonly originLon: number,
+    readonly originLat: number,
+  ) {
     this.cosLat = Math.cos((originLat * Math.PI) / 180);
   }
 

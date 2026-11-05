@@ -21,10 +21,14 @@ const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
     if (signal?.aborted) return reject(new DOMException('Aborted', 'AbortError'));
     const t = setTimeout(resolve, ms);
-    signal?.addEventListener('abort', () => {
-      clearTimeout(t);
-      reject(new DOMException('Aborted', 'AbortError'));
-    }, { once: true });
+    signal?.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(t);
+        reject(new DOMException('Aborted', 'AbortError'));
+      },
+      { once: true },
+    );
   });
 
 /**
@@ -65,7 +69,11 @@ export async function importTiled(bounds: Bounds, opts: TiledOptions = {}): Prom
   const counts: FeatureCounts = { building: 0, road: 0, path: 0, waterway: 0, water: 0, green: 0 };
   for (const f of features) counts[f.kind]++;
   if (features.length === 0) warnings.set('empty', { code: 'empty', message: 'No features found in this area.' });
-  else if (counts.building === 0) warnings.set('no-buildings', { code: 'no-buildings', message: 'No buildings found; OSM coverage may be sparse here.' });
+  else if (counts.building === 0)
+    warnings.set('no-buildings', {
+      code: 'no-buildings',
+      message: 'No buildings found; OSM coverage may be sparse here.',
+    });
   if (tiles.length > 1) warnings.set('tiled', { code: 'tiled', message: `Imported as ${tiles.length} tiles.` });
 
   return { features, counts, warnings: [...warnings.values()] };

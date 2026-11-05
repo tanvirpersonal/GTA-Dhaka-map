@@ -4,7 +4,12 @@ import type { OverpassElement } from '../../src/data/OSMClient';
 
 const g = (lon: number, lat: number) => ({ lon, lat });
 const sq = (x: number, y: number, s: number) => [g(x, y), g(x + s, y), g(x + s, y + s), g(x, y + s), g(x, y)];
-const way = (id: number, tags: Record<string, string>, geometry: ReturnType<typeof sq>): OverpassElement => ({ type: 'way', id, tags, geometry });
+const way = (id: number, tags: Record<string, string>, geometry: ReturnType<typeof sq>): OverpassElement => ({
+  type: 'way',
+  id,
+  tags,
+  geometry,
+});
 
 describe('parseMeters', () => {
   it('parses metres, feet and rejects junk', () => {
@@ -35,7 +40,9 @@ describe('parseOverpass', () => {
   });
 
   it('skips unclosed areas with a warning', () => {
-    const r = parseOverpass({ elements: [way(1, { building: 'yes' }, [g(90.4, 23.76), g(90.401, 23.76), g(90.401, 23.761)])] });
+    const r = parseOverpass({
+      elements: [way(1, { building: 'yes' }, [g(90.4, 23.76), g(90.401, 23.76), g(90.401, 23.761)])],
+    });
     expect(r.counts.building).toBe(0);
     expect(r.warnings.some((w) => w.code === 'open-ring')).toBe(true);
   });

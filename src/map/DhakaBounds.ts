@@ -2,7 +2,7 @@ import type { Bounds } from '../types/editor';
 
 /** Rough extent of Dhaka (used to keep the map and selections on-topic). */
 export const DHAKA_EXTENT: Bounds = {
-  west: 90.30,
+  west: 90.3,
   south: 23.65,
   east: 90.52,
   north: 23.92,
@@ -35,10 +35,7 @@ export function boundsAreaKm2(b: Bounds): number {
 }
 
 /** Normalise two arbitrary corner points into west/south/east/north bounds. */
-export function boundsFromCorners(
-  a: { lng: number; lat: number },
-  b: { lng: number; lat: number },
-): Bounds {
+export function boundsFromCorners(a: { lng: number; lat: number }, b: { lng: number; lat: number }): Bounds {
   return {
     west: Math.min(a.lng, b.lng),
     east: Math.max(a.lng, b.lng),

@@ -99,7 +99,10 @@ export class SelectionManager extends Emitter<SelEvents> {
     const city = this.sm.currentCity;
     if (!city) return;
     const rect = this.sm.renderer.domElement.getBoundingClientRect();
-    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    const ndc = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    );
     this.raycaster.setFromCamera(ndc, this.sm.camera);
 
     const meshes = city.children.filter((c): c is THREE.Mesh => c.visible && !!c.userData.pick);

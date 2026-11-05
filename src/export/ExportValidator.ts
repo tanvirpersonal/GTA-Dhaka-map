@@ -64,10 +64,12 @@ export function validateForExport(root: THREE.Object3D): ValidationReport {
   });
 
   if (meshes === 0) errors.push('Nothing to export: no visible meshes.');
-  if (triangles > MAX_TRIANGLES_WARN) warnings.push(`High triangle count (${triangles.toLocaleString()}); consider a smaller area.`);
+  if (triangles > MAX_TRIANGLES_WARN)
+    warnings.push(`High triangle count (${triangles.toLocaleString()}); consider a smaller area.`);
 
   const s = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
-  if (Math.max(s.x, s.z) > MAX_EXTENT_WARN_M) warnings.push(`Scene is ${Math.round(Math.max(s.x, s.z))} m across; very large for a single asset.`);
+  if (Math.max(s.x, s.z) > MAX_EXTENT_WARN_M)
+    warnings.push(`Scene is ${Math.round(Math.max(s.x, s.z))} m across; very large for a single asset.`);
 
   return { ok: errors.length === 0, errors, warnings, meshes, triangles, size: { x: s.x, y: s.y, z: s.z } };
 }

@@ -6,9 +6,20 @@ import type { Overrides } from '../types/project';
 import type { PickMap } from './pick';
 
 const ROAD_WIDTH_M: Record<string, number> = {
-  motorway: 14, trunk: 12, primary: 11, secondary: 9, tertiary: 8,
-  motorway_link: 7, trunk_link: 7, primary_link: 6, secondary_link: 6, tertiary_link: 6,
-  residential: 6, unclassified: 6, living_street: 5, service: 4,
+  motorway: 14,
+  trunk: 12,
+  primary: 11,
+  secondary: 9,
+  tertiary: 8,
+  motorway_link: 7,
+  trunk_link: 7,
+  primary_link: 6,
+  secondary_link: 6,
+  tertiary_link: 6,
+  residential: 6,
+  unclassified: 6,
+  living_street: 5,
+  service: 4,
 };
 const WATERWAY_WIDTH_M: Record<string, number> = { river: 24, canal: 10, stream: 3, drain: 3 };
 const LANE_WIDTH_M = 3.2;
@@ -34,7 +45,8 @@ export function ribbonGeometry(points: [number, number][], width: number, y: num
   const idx: number[] = [];
 
   const dir = (a: [number, number], b: [number, number]) => {
-    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const dx = b[0] - a[0],
+      dy = b[1] - a[1];
     const l = Math.hypot(dx, dy) || 1;
     return [dx / l, dy / l] as const;
   };
@@ -94,7 +106,11 @@ export function generateLines(
   for (const f of features) {
     const ov = overrides[f.id];
     if (ov?.hidden) continue;
-    const g = ribbonGeometry(f.points.map((p) => proj.toLocal(p)), ov?.widthM ?? resolveWidth(f), style.y);
+    const g = ribbonGeometry(
+      f.points.map((p) => proj.toLocal(p)),
+      ov?.widthM ?? resolveWidth(f),
+      style.y,
+    );
     if (g) {
       geos.push(g.index ? g.toNonIndexed() : g);
       ids.push(f.id);

@@ -30,7 +30,8 @@ export function generateCity(
   const group = new THREE.Group();
   group.name = 'dhaka-city';
 
-  const pick = <T extends { kind: string }>(kind: string) => result.features.filter((f) => f.kind === kind) as unknown as T[];
+  const pick = <T extends { kind: string }>(kind: string) =>
+    result.features.filter((f) => f.kind === kind) as unknown as T[];
   const lines = (k: 'road' | 'path' | 'waterway') => pick<LineFeature>(k);
 
   const parts = [

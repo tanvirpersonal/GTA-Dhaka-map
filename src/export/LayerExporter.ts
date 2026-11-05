@@ -17,7 +17,11 @@ export async function exportLayersZip(city: THREE.Object3D, bounds: Bounds): Pro
     const glb = await exportGLB(mesh);
     const file = `${mesh.name}.glb`;
     const g = mesh.geometry;
-    layers.push({ name: mesh.name, file, triangles: Math.round((g.index ? g.index.count : g.getAttribute('position').count) / 3) });
+    layers.push({
+      name: mesh.name,
+      file,
+      triangles: Math.round((g.index ? g.index.count : g.getAttribute('position').count) / 3),
+    });
     entries.push({ name: file, data: new Uint8Array(glb) });
   }
   if (entries.length === 0) throw new Error('Nothing to export: no visible layers.');

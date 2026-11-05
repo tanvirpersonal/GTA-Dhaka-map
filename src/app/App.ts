@@ -281,7 +281,12 @@ export class App {
   }
 
   /** Make a (bounds, import) pair the active editable project. */
-  private setWorking(bounds: Bounds, result: ImportResult, overrides: Record<string, FeatureOverride>, layers: Layers): void {
+  private setWorking(
+    bounds: Bounds,
+    result: ImportResult,
+    overrides: Record<string, FeatureOverride>,
+    layers: Layers,
+  ): void {
     this.working = { bounds, result, byId: new Map(result.features.map((f) => [f.id, f])) };
     this.history.reset(overrides);
     this.layers = layers;
@@ -304,7 +309,9 @@ export class App {
       if (frame) {
         store.setStatus(
           stats.meshes ? 'info' : 'warn',
-          stats.meshes ? `City ready: ${stats.triangles.toLocaleString()} triangles, ${stats.meshes} layers. Click a feature to edit.` : 'Nothing to generate in this area.',
+          stats.meshes
+            ? `City ready: ${stats.triangles.toLocaleString()} triangles, ${stats.meshes} layers. Click a feature to edit.`
+            : 'Nothing to generate in this area.',
         );
       }
     } catch (err) {
@@ -360,7 +367,8 @@ export class App {
       tags: f.tags,
     };
     if (f.kind === 'building') target.heightM = ov?.heightM ?? resolveHeight(f);
-    else if (f.kind === 'road' || f.kind === 'path' || f.kind === 'waterway') target.widthM = ov?.widthM ?? resolveWidth(f);
+    else if (f.kind === 'road' || f.kind === 'path' || f.kind === 'waterway')
+      target.widthM = ov?.widthM ?? resolveWidth(f);
     this.props.show(target);
   }
 
@@ -370,7 +378,9 @@ export class App {
       store.setStatus('warn', 'Nothing to save yet: import and generate an area first.');
       return;
     }
-    saveProjectFile(serializeProject({ bounds: w.bounds, import: w.result, overrides: this.history.current, layers: this.layers }));
+    saveProjectFile(
+      serializeProject({ bounds: w.bounds, import: w.result, overrides: this.history.current, layers: this.layers }),
+    );
     store.setStatus('info', 'Project saved.');
   }
 
@@ -411,7 +421,10 @@ export class App {
         size = data.byteLength;
       }
       const note = report.warnings.length ? ` Warning: ${report.warnings[0]}` : '';
-      store.setStatus(report.warnings.length ? 'warn' : 'info', `Exported ${(size / 1048576).toFixed(2)} MB (${report.triangles.toLocaleString()} triangles).${note}`);
+      store.setStatus(
+        report.warnings.length ? 'warn' : 'info',
+        `Exported ${(size / 1048576).toFixed(2)} MB (${report.triangles.toLocaleString()} triangles).${note}`,
+      );
     } catch (err) {
       store.setStatus('error', `Export failed: ${(err as Error).message}`);
     }

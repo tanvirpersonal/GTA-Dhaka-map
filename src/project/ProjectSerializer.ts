@@ -1,6 +1,13 @@
 import type { Bounds } from '../types/editor';
 import type { ImportResult } from '../types/features';
-import { defaultLayers, LAYER_IDS, PROJECT_FORMAT, type Layers, type Overrides, type ProjectFile } from '../types/project';
+import {
+  defaultLayers,
+  LAYER_IDS,
+  PROJECT_FORMAT,
+  type Layers,
+  type Overrides,
+  type ProjectFile,
+} from '../types/project';
 
 export function serializeProject(input: {
   bounds: Bounds;
@@ -32,9 +39,11 @@ export function parseProject(text: string): ProjectFile {
   if (raw.version !== 1) throw new Error(`Unsupported project version: ${String(raw.version)}.`);
 
   const b = raw.bounds;
-  if (!isObj(b) || !isNum(b.west) || !isNum(b.south) || !isNum(b.east) || !isNum(b.north)) throw new Error('Project has invalid bounds.');
+  if (!isObj(b) || !isNum(b.west) || !isNum(b.south) || !isNum(b.east) || !isNum(b.north))
+    throw new Error('Project has invalid bounds.');
   const imp = raw.import;
-  if (!isObj(imp) || !Array.isArray(imp.features) || !isObj(imp.counts) || !Array.isArray(imp.warnings)) throw new Error('Project has invalid import data.');
+  if (!isObj(imp) || !Array.isArray(imp.features) || !isObj(imp.counts) || !Array.isArray(imp.warnings))
+    throw new Error('Project has invalid import data.');
 
   // Overrides: keep only known, well-typed fields.
   const overrides: Overrides = {};

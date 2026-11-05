@@ -102,9 +102,7 @@ export class AreaSelector {
   private draw(bounds: Bounds | null): void {
     const src = this.map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
     if (!src) return;
-    src.setData(
-      bounds ? toGeoJSON(bounds) : { type: 'FeatureCollection', features: [] },
-    );
+    src.setData(bounds ? toGeoJSON(bounds) : { type: 'FeatureCollection', features: [] });
   }
 
   private handleDown = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent): void => {
