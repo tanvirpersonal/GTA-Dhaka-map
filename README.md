@@ -515,7 +515,7 @@ The Unreal import guide must document scale, axis orientation, collision setup, 
 ### Milestone 0 — Foundation
 - [x] Initialize Vite + TypeScript.
 - [x] Add Three.js and MapLibre.
-- [ ] Set up linting, formatting and basic tests.
+- [x] Set up linting, formatting and basic tests (strict `tsc` as the lint gate, Prettier, Vitest; ESLint is blocked until typescript-eslint supports TypeScript 7). Run `npm run check`.
 - [x] Create dark editor shell and responsive layout.
 - [x] Configure GitHub Pages deployment.
 
