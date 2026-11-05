@@ -28,6 +28,11 @@ Branch: `chatgpt-development`
 - The backend is intentionally not required for this browser-first milestone. GitHub Pages cannot host FastAPI or a database.
 - Export is currently a single GLB scene; tile-based export and Unreal-specific collision/material setup are future milestones.
 
+- Click-to-select generated scene objects (buildings, roads, green and water meshes) with visual highlight.
+- Building inspector with OSM ID, height source and adjustable height slider.
+- Reset selected building height to its original OSM-derived or estimated value.
+- Camera orbit gestures are distinguished from click selection; dragging the viewport does not select objects.
+
 ## Next milestones
 
 1. Verify CI build and resolve any TypeScript/build issues it reports.
