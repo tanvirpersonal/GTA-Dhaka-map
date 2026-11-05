@@ -106,10 +106,6 @@ export function generateCity(features: OSMFeature[], bounds: Bounds): GeneratedC
   const junctionMat = material(0x343a43);
   const waterMat = new THREE.MeshStandardMaterial({ color: 0x245b79, roughness: 0.28, metalness: 0.08 });
   const stats: GenerationStats = { buildings: 0, roads: 0, sidewalks: 0, intersections: 0, greenAreas: 0, waterAreas: 0, skipped: 0 };
-  const roadEndpoints = new Map<string, { point: THREE.Vector2; count: number; maxRadius: number }>();
-  const sidewalkMat = material(0x77736a);
-  const junctionMat = material(0x343a43);
-
   for (const feature of features) {
     if (feature.type !== 'way') continue;
     const nodes = wayNodes(feature);
