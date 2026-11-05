@@ -65,7 +65,9 @@ export function createCityBlocks(bounds: Bounds, blockSizeM = CITY_BLOCK_SIZE_M)
 function featureCenter(feature: MapFeature): [number, number] {
   const points = feature.kind === 'road' || feature.kind === 'path' || feature.kind === 'waterway'
     ? feature.points
-    : feature.outer;
+    : feature.kind === 'building' || feature.kind === 'water' || feature.kind === 'green'
+      ? feature.outer
+      : [];
   let lon = 0;
   let lat = 0;
   for (const point of points) { lon += point[0]; lat += point[1]; }
