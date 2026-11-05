@@ -190,7 +190,7 @@ $('generate-city').addEventListener('click', () => {
     scene.controls.target.set(0, 0, 0);
     scene.camera.position.set(size * 0.8, size * 0.72, size * 0.8);
     scene.controls.update();
-    $('generation-report').textContent = `${result.stats.buildings} buildings · ${result.stats.roads} roads · ${result.stats.greenAreas} green areas · ${result.stats.waterAreas} water areas · ${result.stats.skipped} skipped. Building heights without OSM height/levels are estimates.`;
+    $('generation-report').textContent = `${result.stats.buildings} buildings · ${result.stats.roads} roads · ${result.stats.sidewalks} sidewalk segments · ${result.stats.intersections} junctions · ${result.stats.greenAreas} green areas · ${result.stats.waterAreas} water areas · ${result.stats.skipped} skipped. Building heights without OSM height/levels are estimates.`;
     $('viewport-hint').textContent = `· ${result.stats.buildings} buildings / ${result.stats.roads} roads`;
     setStep('step-generate', true); exportButton.disabled = cityGroup.children.length === 0;
     setStatus('3D city generated. Orbit, pan and zoom to inspect.', 'info');
