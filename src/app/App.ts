@@ -5,6 +5,8 @@ import { SceneManager } from '../renderer/SceneManager';
 import { fetchOSM, OSMImportError } from '../data/OSMClient';
 import { parseOverpass } from '../data/OSMParser';
 import { getCached, putCached } from '../data/ImportCache';
+import { serializeProject } from '../project/ProjectSerializer';
+import { openProjectFile, saveProjectFile } from '../project/ProjectManager';
 import { generateCity } from '../generator/CityGenerator';
 import { downloadBlob, exportGLB } from '../export/GLBExporter';
 import type { ImportResult, MapFeature } from '../types/features';
@@ -28,6 +30,8 @@ const TEMPLATE = `
 <div class="editor">
   <header class="topbar">
     <div class="brand"><img src="${import.meta.env.BASE_URL}favicon.svg" alt="" />DHAKA WORLD BUILDER</div>
+    <button id="btn-open" title="Open a saved project (.dwb.json)">Open</button>
+    <input id="file-open" type="file" accept=".json,application/json" hidden />
     <button id="btn-import" disabled title="Import OpenStreetMap data for the selected area">Import</button>
     <button id="btn-generate" disabled title="Build the 3D city from imported data">Generate</button>
     <button id="btn-undo" disabled title="Undo (Ctrl+Z)">Undo</button>
@@ -179,6 +183,36 @@ export class App {
       else void this.runImport();
     });
 
+    const fileInput = el<HTMLInputElement>(root, '#file-open');
+    el(root, '#btn-open').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files?.[0];
+      fileInput.value = '';
+      if (f) void this.openProject(f);
+    });
+    el(root, '#btn-save').addEventListener('click', () => this.saveProject());
+
+    window.addEventListener('keydown', (e) => {
+      const t = e.target as HTMLElement;
+      if (t.closest('input, textarea, select')) return;
+      const mod = e.ctrlKey || e.metaKey;
+      const k = e.key.toLowerCase();
+      if (mod && k === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) this.redo();
+        else this.undo();
+      } else if (mod && k === 'y') {
+        e.preventDefault();
+        this.redo();
+      } else if (mod && k === 's') {
+        e.preventDefault();
+        this.saveProject();
+      } else if ((k === 'delete' || k === 'backspace') && this.selection.current) {
+        e.preventDefault();
+        this.applyEdit(this.selection.current.id, { hidden: true });
+      }
+    });
+
     el(root, '#btn-undo').addEventListener('click', () => this.undo());
     el(root, '#btn-redo').addEventListener('click', () => this.redo());
 
@@ -267,6 +301,7 @@ export class App {
       el(this.root, '#placeholder').style.display = 'none';
       this.selection.refreshHighlight();
       (el(this.root, '#btn-export') as HTMLButtonElement).disabled = stats.meshes === 0;
+      (el(this.root, '#btn-save') as HTMLButtonElement).disabled = false;
       if (frame) {
         store.setStatus(
           stats.meshes ? 'info' : 'warn',
@@ -328,6 +363,30 @@ export class App {
     if (f.kind === 'building') target.heightM = ov?.heightM ?? resolveHeight(f);
     else if (f.kind === 'road' || f.kind === 'path' || f.kind === 'waterway') target.widthM = ov?.widthM ?? resolveWidth(f);
     this.props.show(target);
+  }
+
+  private saveProject(): void {
+    const w = this.working;
+    if (!w) {
+      store.setStatus('warn', 'Nothing to save yet: import and generate an area first.');
+      return;
+    }
+    saveProjectFile(serializeProject({ bounds: w.bounds, import: w.result, overrides: this.history.current, layers: this.layers }));
+    store.setStatus('info', 'Project saved.');
+  }
+
+  private async openProject(file: File): Promise<void> {
+    try {
+      const p = await openProjectFile(file);
+      this.setWorking(p.bounds, p.import, p.overrides, p.layers);
+      this.importResult = p.import;
+      this.renderImport();
+      this.mapView.fitTo(p.bounds.west, p.bounds.south, p.bounds.east, p.bounds.north);
+      this.regenerate(true);
+      store.setStatus('info', `Opened project (saved ${new Date(p.savedAt).toLocaleString()}).`);
+    } catch (err) {
+      store.setStatus('error', `Could not open project: ${(err as Error).message}`);
+    }
   }
 
   private async runExport(): Promise<void> {
