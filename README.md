@@ -558,6 +558,8 @@ The Unreal import guide must document scale, axis orientation, collision setup, 
 - [ ] Add Dhanmondi coverage.
 - [ ] Improve intersections and sidewalks.
 - [ ] Add tile streaming and LOD.
+  - [x] Tiled import: selections up to 4 km² are fetched as ≤0.25 km² tiles, cached per tile and de-duplicated.
+  - [ ] Stream tiles into the 3D scene and add LOD (generation is still one merged city per selection).
 - [ ] Profile memory and frame rate.
 
 ### Milestone 7 — Optional backend
