@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { LocalProjection } from '../data/CoordinateTransform';
 import type { LineFeature } from '../types/features';
+import type { Overrides } from '../types/project';
+import type { PickMap } from './pick';
 
 const ROAD_WIDTH_M: Record<string, number> = {
   motorway: 14, trunk: 12, primary: 11, secondary: 9, tertiary: 8,
@@ -81,13 +83,30 @@ export interface LineStyle {
 }
 
 /** Merge all line features of one style into a single double-sided mesh. */
-export function generateLines(features: LineFeature[], proj: LocalProjection, style: LineStyle): THREE.Mesh | null {
+export function generateLines(
+  features: LineFeature[],
+  proj: LocalProjection,
+  style: LineStyle,
+  overrides: Overrides = {},
+): THREE.Mesh | null {
   const geos: THREE.BufferGeometry[] = [];
+  const ids: string[] = [];
   for (const f of features) {
-    const g = ribbonGeometry(f.points.map((p) => proj.toLocal(p)), resolveWidth(f), style.y);
-    if (g) geos.push(g.index ? g.toNonIndexed() : g);
+    const ov = overrides[f.id];
+    if (ov?.hidden) continue;
+    const g = ribbonGeometry(f.points.map((p) => proj.toLocal(p)), ov?.widthM ?? resolveWidth(f), style.y);
+    if (g) {
+      geos.push(g.index ? g.toNonIndexed() : g);
+      ids.push(f.id);
+    }
   }
   if (geos.length === 0) return null;
+  const starts: number[] = [];
+  let acc = 0;
+  for (const g of geos) {
+    starts.push(acc);
+    acc += g.getAttribute('position').count;
+  }
   const merged = mergeGeometries(geos, false);
   geos.forEach((g) => g.dispose());
   if (!merged) return null;
@@ -96,5 +115,6 @@ export function generateLines(features: LineFeature[], proj: LocalProjection, st
     new THREE.MeshStandardMaterial({ color: style.color, roughness: 0.95, side: THREE.DoubleSide }),
   );
   mesh.name = style.name;
+  mesh.userData.pick = { ids, starts, total: acc } satisfies PickMap;
   return mesh;
 }
