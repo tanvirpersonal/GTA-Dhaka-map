@@ -48,7 +48,7 @@ export class SceneManager {
   }
 
   /** Replace the displayed city and frame the camera around it. */
-  setCity(group: THREE.Group | null): void {
+  setCity(group: THREE.Group | null, frame = true): void {
     if (this.city) {
       this.scene.remove(this.city);
       disposeCity(this.city);
@@ -56,6 +56,7 @@ export class SceneManager {
     this.city = group;
     if (!group) return;
     this.scene.add(group);
+    if (!frame) return;
     const size = new THREE.Box3().setFromObject(group).getSize(new THREE.Vector3());
     const r = Math.max(size.x, size.z, 100);
     this.camera.position.set(r * 0.7, r * 0.6, r * 0.7);
