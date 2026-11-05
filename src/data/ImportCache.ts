@@ -32,9 +32,9 @@ export function putCached(b: Bounds, result: ImportResult): void {
   try {
     const raw = JSON.stringify({ t: Date.now(), result } satisfies Entry);
     if (raw.length > MAX_BYTES) return;
-    // Keep only the newest few entries.
+    // Keep a bounded number of entries (large areas are cached per tile).
     const keys = Object.keys(localStorage).filter((k) => k.startsWith(PREFIX));
-    if (keys.length >= 5) keys.slice(0, keys.length - 4).forEach((k) => localStorage.removeItem(k));
+    if (keys.length >= 40) keys.slice(0, keys.length - 39).forEach((k) => localStorage.removeItem(k));
     localStorage.setItem(keyFor(b), raw);
   } catch {
     /* quota or privacy mode: ignore */
