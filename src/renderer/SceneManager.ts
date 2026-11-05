@@ -161,9 +161,9 @@ export class SceneManager {
     const distance = 7.5;
     const horizontal = Math.cos(this.pitch) * distance;
     const desired = new THREE.Vector3(
-      target.x + Math.sin(this.yaw) * horizontal,
+      target.x - Math.sin(this.yaw) * horizontal,
       target.y + 2.2 - Math.sin(this.pitch) * distance,
-      target.z + Math.cos(this.yaw) * horizontal,
+      target.z - Math.cos(this.yaw) * horizontal,
     );
     this.camera.position.lerp(desired, 0.22);
     this.camera.lookAt(target);
@@ -231,7 +231,7 @@ export class SceneManager {
       ).normalize();
       const speed = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') ? 18 : 7;
       this.walker.position.addScaledVector(direction, speed * dt);
-      this.walker.rotation.y = Math.atan2(direction.x, direction.z) + Math.PI;
+      this.walker.rotation.y = Math.atan2(direction.x, direction.z);
     }
     this.followWalker();
   }
