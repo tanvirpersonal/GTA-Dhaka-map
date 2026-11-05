@@ -11,11 +11,11 @@ export const DHAKA_EXTENT: Bounds = {
 /** Default map centre: Tejgaon Industrial Area, the first test area. */
 export const TEJGAON_CENTER: [number, number] = [90.3995, 23.7625];
 
-/** Maximum selection area for V1, in square kilometres. */
-export const MAX_AREA_KM2 = 1.0;
+/** Maximum selection area, in square kilometres (imported as <=0.25 km² tiles). */
+export const MAX_AREA_KM2 = 4.0;
 
 /** Warn above this fraction of the maximum area. */
-export const WARN_AREA_KM2 = 0.5;
+export const WARN_AREA_KM2 = 2.0;
 
 const EARTH_RADIUS_M = 6_371_008.8;
 
@@ -75,7 +75,7 @@ export function validateSelection(b: Bounds): SelectionCheck {
     return {
       ok: false,
       level: 'error',
-      message: `Selection is ${area.toFixed(2)} km², above the ${MAX_AREA_KM2} km² V1 limit. Choose a smaller area.`,
+      message: `Selection is ${area.toFixed(2)} km², above the ${MAX_AREA_KM2} km² limit. Choose a smaller area.`,
     };
   }
   if (area > WARN_AREA_KM2) {
@@ -85,5 +85,5 @@ export function validateSelection(b: Bounds): SelectionCheck {
       message: 'Large selection: importing and generating may be slow.',
     };
   }
-  return { ok: true, level: 'ok', message: 'Selection size is fine for a V1 import.' };
+  return { ok: true, level: 'ok', message: 'Selection size is fine.' };
 }
