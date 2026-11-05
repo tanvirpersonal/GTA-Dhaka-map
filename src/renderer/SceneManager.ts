@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposeCity } from '../generator/CityGenerator';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 /** Owns the Three.js renderer, camera, controls and render loop. */
@@ -37,6 +38,29 @@ export class SceneManager {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
+  }
+
+  private city: THREE.Group | null = null;
+
+  /** The currently displayed generated city, if any. */
+  get currentCity(): THREE.Group | null {
+    return this.city;
+  }
+
+  /** Replace the displayed city and frame the camera around it. */
+  setCity(group: THREE.Group | null): void {
+    if (this.city) {
+      this.scene.remove(this.city);
+      disposeCity(this.city);
+    }
+    this.city = group;
+    if (!group) return;
+    this.scene.add(group);
+    const size = new THREE.Box3().setFromObject(group).getSize(new THREE.Vector3());
+    const r = Math.max(size.x, size.z, 100);
+    this.camera.position.set(r * 0.7, r * 0.6, r * 0.7);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
   }
 
   /** Top-down camera preset, framing roughly `extent` metres across. */
