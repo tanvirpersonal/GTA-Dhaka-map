@@ -136,9 +136,10 @@ $('generate-city').addEventListener('click', () => {
     const result = generateCity(osmFeatures, selectedBounds);
     cityGroup = result.group; generationStats = result.stats;
     scene.scene.add(cityGroup);
-    const size = Math.max(150, Math.max(...Object.values(result.stats).slice(0, 2)) * 3);
+    const mapSize = boundsSizeMeters(selectedBounds);
+    const size = Math.max(mapSize.width, mapSize.height, 120);
     scene.controls.target.set(0, 0, 0);
-    scene.camera.position.set(size, size * 0.85, size);
+    scene.camera.position.set(size * 0.8, size * 0.72, size * 0.8);
     scene.controls.update();
     $('generation-report').textContent = `${result.stats.buildings} buildings · ${result.stats.roads} roads · ${result.stats.greenAreas} green areas · ${result.stats.waterAreas} water areas · ${result.stats.skipped} skipped. Building heights without OSM height/levels are estimates.`;
     $('viewport-hint').textContent = `· ${result.stats.buildings} buildings / ${result.stats.roads} roads`;
