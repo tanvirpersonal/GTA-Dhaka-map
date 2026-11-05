@@ -1,0 +1,22 @@
+:root {
+  --bg: #0f1115;
+  --bg-elev: #161a21;
+  --bg-elev-2: #1d222b;
+  --border: #2a303b;
+  --text: #e6e9ef;
+  --text-dim: #8d96a5;
+  --accent: #f5b942;
+  --accent-2: #4ea1ff;
+  --danger: #ff5d5d;
+  --warn: #f5b942;
+  --ok: #4ade80;
+
+  --topbar-h: 48px;
+  --statusbar-h: 28px;
+  --left-w: 380px;
+  --right-w: 280px;
+
+  --radius: 6px;
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
