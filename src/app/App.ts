@@ -4,6 +4,7 @@ import { boundsAreaKm2, boundsSizeMeters, MAX_AREA_KM2, validateSelection } from
 import { SceneManager } from '../renderer/SceneManager';
 import { OSMImportError } from '../data/OSMClient';
 import { importTiled } from '../data/TiledImport';
+import { assignFeaturesToBlocks, createCityBlocks, type CityBlock } from '../data/CityBlockGrid';
 import { serializeProject } from '../project/ProjectSerializer';
 import { openProjectFile, saveProjectFile } from '../project/ProjectManager';
 import { generateCity } from '../generator/CityGenerator';
@@ -71,6 +72,10 @@ const TEMPLATE = `
       </div>
     </section>
     <section>
+      <h2>City blocks · 250 m</h2>
+      <div class="card"><dl class="kv" id="block-info"><dt>Status</dt><dd>Import an area to create blocks</dd></dl><div id="block-list" class="hint"></div></div>
+    </section>
+    <section>
       <h2>Selected area</h2>
       <div class="card">
         <dl class="kv" id="sel-info"></dl>
@@ -105,6 +110,7 @@ export class App {
   private readonly selector: AreaSelector;
   private readonly scene: SceneManager;
   private importResult: ImportResult | null = null;
+  private cityBlocks: CityBlock[] = [];
   private abort: AbortController | null = null;
   /** The data behind the city currently shown (may differ from the live map selection). */
   private working: { bounds: Bounds; result: ImportResult; byId: Map<string, MapFeature> } | null = null;
@@ -246,6 +252,9 @@ export class App {
       (el(this.root, '#btn-import') as HTMLButtonElement).disabled = !has;
       // A new selection invalidates the previous import.
       this.importResult = null;
+      this.cityBlocks = [];
+      this.mapView.setCityBlocks([]);
+      this.renderBlocks();
       this.renderImport();
     });
     store.on('status', () => this.renderStatus());
@@ -273,6 +282,9 @@ export class App {
           store.setStatus('warn', `Overpass: ${reason}. Retry ${attempt} in ${Math.round(delayMs / 1000)}s…`),
       });
       this.importResult = result;
+      this.cityBlocks = assignFeaturesToBlocks(createCityBlocks(bounds), result.features);
+      this.mapView.setCityBlocks(this.cityBlocks);
+      this.renderBlocks();
       this.setImportProgress(100, 'Map data imported · ready for 3D generation', true);
       const n = result.features.length;
       store.setStatus(result.warnings.length ? 'warn' : 'info', `Imported ${n} feature${n === 1 ? '' : 's'}.`);
@@ -397,6 +409,9 @@ export class App {
       const p = await openProjectFile(file);
       this.setWorking(p.bounds, p.import, p.overrides, p.layers);
       this.importResult = p.import;
+      this.cityBlocks = assignFeaturesToBlocks(createCityBlocks(p.bounds), p.import.features);
+      this.mapView.setCityBlocks(this.cityBlocks);
+      this.renderBlocks();
       this.renderImport();
       this.mapView.fitTo(p.bounds.west, p.bounds.south, p.bounds.east, p.bounds.north);
       this.regenerate(true);
@@ -448,6 +463,20 @@ export class App {
     value.textContent = `${safe}%`;
     text.textContent = label;
     track.setAttribute('aria-valuenow', String(safe));
+  }
+
+  private renderBlocks(): void {
+    const info = el(this.root, '#block-info');
+    const list = el(this.root, '#block-list');
+    if (!this.cityBlocks.length) { info.innerHTML = '<dt>Status</dt><dd>No blocks yet</dd>'; list.textContent = 'Select an area and import OSM data.'; return; }
+    const total = this.cityBlocks.length;
+    const populated = this.cityBlocks.filter((b) => b.featureIds.length > 0).length;
+    const sum = this.cityBlocks.reduce((acc, b) => {
+      acc.building += b.counts.building; acc.road += b.counts.road; acc.path += b.counts.path;
+      acc.waterway += b.counts.waterway; acc.water += b.counts.water; acc.green += b.counts.green; return acc;
+    }, { building: 0, road: 0, path: 0, waterway: 0, water: 0, green: 0 });
+    info.innerHTML = '<dt>Total blocks</dt><dd>' + total + '</dd><dt>Blocks with data</dt><dd>' + populated + '</dd><dt>Buildings</dt><dd>' + sum.building + '</dd><dt>Road segments</dt><dd>' + sum.road + '</dd><dt>Other features</dt><dd>' + (sum.path + sum.waterway + sum.water + sum.green) + '</dd>';
+    list.textContent = 'Grid shown on map. Each cell is a separate future generation unit (250 m target size).'
   }
 
   private renderImport(): void {
