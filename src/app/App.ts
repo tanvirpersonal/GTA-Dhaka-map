@@ -62,6 +62,10 @@ const TEMPLATE = `
     <section>
       <h2>Import</h2>
       <div class="card">
+        <div class="import-progress" id="import-progress" hidden>
+          <div class="progress-meta"><span id="import-progress-label">Importing map data…</span><strong id="import-progress-value">0%</strong></div>
+          <div class="progress-track" role="progressbar" aria-label="Map import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="import-progress-track"><div class="progress-fill" id="import-progress-fill"></div></div>
+        </div>
         <dl class="kv" id="imp-info"></dl>
         <div id="imp-notice"></div>
       </div>
