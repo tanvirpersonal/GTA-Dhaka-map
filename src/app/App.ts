@@ -5,6 +5,8 @@ import { SceneManager } from '../renderer/SceneManager';
 import { fetchOSM, OSMImportError } from '../data/OSMClient';
 import { parseOverpass } from '../data/OSMParser';
 import { getCached, putCached } from '../data/ImportCache';
+import { generateCity } from '../generator/CityGenerator';
+import { downloadBlob, exportGLB } from '../export/GLBExporter';
 import type { ImportResult } from '../types/features';
 import { store } from './state';
 import type { Bounds } from '../types/editor';
@@ -20,9 +22,9 @@ const TEMPLATE = `
   <header class="topbar">
     <div class="brand"><img src="${import.meta.env.BASE_URL}favicon.svg" alt="" />DHAKA WORLD BUILDER</div>
     <button id="btn-import" disabled title="Import OpenStreetMap data for the selected area">Import</button>
-    <button id="btn-generate" disabled title="Milestone 3">Generate</button>
+    <button id="btn-generate" disabled title="Build the 3D city from imported data">Generate</button>
     <button id="btn-save" disabled title="Milestone 4">Save</button>
-    <button id="btn-export" disabled title="Milestone 5">Export</button>
+    <button id="btn-export" disabled title="Download the city as a GLB file">Export GLB</button>
     <span class="spacer"></span>
     <span class="hint">Select area → Import → Generate → Export</span>
   </header>
@@ -147,6 +149,9 @@ export class App {
       else void this.runImport();
     });
 
+    el(root, '#btn-generate').addEventListener('click', () => void this.runGenerate());
+    el(root, '#btn-export').addEventListener('click', () => void this.runExport());
+
     window.addEventListener('resize', () => this.mapView.resize());
   }
 
@@ -200,10 +205,44 @@ export class App {
     }
   }
 
+  private async runGenerate(): Promise<void> {
+    const result = this.importResult;
+    const bounds = store.selection;
+    if (!result || !bounds) return;
+    store.setStatus('info', 'Generating 3D city…');
+    await new Promise((r) => setTimeout(r, 30)); // let the status paint before heavy work
+    try {
+      const { group, stats } = generateCity(result, bounds);
+      this.scene.setCity(group);
+      el(this.root, '#placeholder').style.display = 'none';
+      (el(this.root, '#btn-export') as HTMLButtonElement).disabled = stats.meshes === 0;
+      store.setStatus(
+        stats.meshes ? 'info' : 'warn',
+        stats.meshes ? `City ready: ${stats.triangles.toLocaleString()} triangles, ${stats.meshes} layers.` : 'Nothing to generate in this area.',
+      );
+    } catch (err) {
+      store.setStatus('error', `Generation failed: ${(err as Error).message}`);
+    }
+  }
+
+  private async runExport(): Promise<void> {
+    const city = this.scene.currentCity;
+    if (!city) return;
+    try {
+      store.setStatus('info', 'Exporting GLB…');
+      const data = await exportGLB(city);
+      downloadBlob(data, `dhaka-area-${Date.now()}.glb`);
+      store.setStatus('info', `Exported GLB (${(data.byteLength / 1048576).toFixed(2)} MB).`);
+    } catch (err) {
+      store.setStatus('error', `Export failed: ${(err as Error).message}`);
+    }
+  }
+
   private renderImport(): void {
     const info = el(this.root, '#imp-info');
     const notice = el(this.root, '#imp-notice');
     const r = this.importResult;
+    (el(this.root, '#btn-generate') as HTMLButtonElement).disabled = !r || r.features.length === 0;
     if (!r) {
       info.innerHTML = '<dt>Status</dt><dd>Nothing imported</dd>';
       notice.innerHTML = '';
