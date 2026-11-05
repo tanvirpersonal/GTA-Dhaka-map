@@ -540,17 +540,17 @@ The Unreal import guide must document scale, axis orientation, collision setup, 
 - [x] Add camera controls, grid and lighting.
 
 ### Milestone 4 — Editor
-- [ ] Select generated buildings and roads.
-- [ ] Edit building heights and road widths.
-- [ ] Change materials and visibility.
-- [ ] Add undo/redo for editor changes.
-- [ ] Save and reopen project JSON.
+- [x] Select generated buildings and roads.
+- [x] Edit building heights and road widths.
+- [x] Change materials and visibility.
+- [x] Add undo/redo for editor changes.
+- [x] Save and reopen project JSON.
 
 ### Milestone 5 — Export
 - [x] Export GLB/GLTF.
-- [ ] Export selected tiles separately.
-- [ ] Validate geometry and material references.
-- [ ] Write Unreal Engine import documentation.
+- [x] Export selected tiles separately.
+- [x] Validate geometry and material references.
+- [x] Write Unreal Engine import documentation.
 - [ ] Test exported assets in a small Unreal scene.
 
 ### Milestone 6 — Dhaka expansion
