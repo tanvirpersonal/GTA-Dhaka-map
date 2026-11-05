@@ -307,10 +307,10 @@ export class App {
     store.setStatus('info', 'Generating 3D city…');
     await new Promise((r) => setTimeout(r, 30)); // let the status paint before heavy work
     this.setWorking(bounds, result, {}, defaultLayers());
-    this.regenerate(true);
+    const generated = this.regenerate(true);
     // The current renderer builds the imported selection as one complete scene.
     // Mark its constituent blocks complete only after that full build succeeds.
-    if (this.scene.currentCity) {
+    if (generated) {
       this.cityBlocks = this.cityBlocks.map((block) => ({ ...block, status: 'validated' }));
       saveBlockProgress(this.cityBlocks);
       this.renderBlocks();
@@ -327,9 +327,9 @@ export class App {
   }
 
   /** Rebuild the 3D city from the working data + current edits and layer settings. */
-  private regenerate(frame: boolean): void {
+  private regenerate(frame: boolean): boolean {
     const w = this.working;
-    if (!w) return;
+    if (!w) return false;
     try {
       const { group, stats } = generateCity(w.result, w.bounds, this.history.current, this.layers);
       this.scene.setCity(group, frame);
@@ -347,9 +347,11 @@ export class App {
       }
     } catch (err) {
       store.setStatus('error', `Generation failed: ${(err as Error).message}`);
+      return false;
     }
     this.syncHistoryButtons();
     this.updateProps();
+    return true;
   }
 
   private applyEdit(id: string, patch: FeatureOverride): void {
