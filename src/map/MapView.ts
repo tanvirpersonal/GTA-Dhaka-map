@@ -52,6 +52,24 @@ export class MapView {
     );
   }
 
+  /** Draw the imported 250 m generation grid over the OSM map. */
+  setCityBlocks(blocks: Array<{ id: string; bounds: { west: number; south: number; east: number; north: number }; counts: Record<string, number> }>): void {
+    const apply = () => {
+      const sourceId = 'city-block-grid';
+      const data: GeoJSON.FeatureCollection<GeoJSON.Polygon, { id: string; features: number; buildings: number }> = {
+        type: 'FeatureCollection',
+        features: blocks.map((block) => ({ type: 'Feature', properties: { id: block.id, features: Object.values(block.counts).reduce((sum, value) => sum + value, 0), buildings: block.counts.building ?? 0 }, geometry: { type: 'Polygon', coordinates: [[[block.bounds.west, block.bounds.south], [block.bounds.east, block.bounds.south], [block.bounds.east, block.bounds.north], [block.bounds.west, block.bounds.north], [block.bounds.west, block.bounds.south]]] } })),
+      };
+      const existing = this.map.getSource(sourceId) as maplibregl.GeoJSONSource | undefined;
+      if (existing) existing.setData(data);
+      else {
+        this.map.addSource(sourceId, { type: 'geojson', data });
+        this.map.addLayer({ id: 'city-block-fill', type: 'fill', source: sourceId, paint: { 'fill-color': ['case', ['>', ['get', 'features'], 0], '#16a34a', '#64748b'], 'fill-opacity': 0.10 } });
+        this.map.addLayer({ id: 'city-block-outline', type: 'line', source: sourceId, paint: { 'line-color': '#f59e0b', 'line-width': 1.2, 'line-opacity': 0.9 } });
+      }
+    };
+    if (this.map.isStyleLoaded()) apply(); else this.map.once('load', apply);
+  }
   resize(): void {
     this.map.resize();
   }
