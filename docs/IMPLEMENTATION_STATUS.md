@@ -11,6 +11,8 @@ Branch: `chatgpt-development`
 - Local metric scene coordinates for the selected map tile.
 - Procedural building extrusion using OSM height / building-level tags where available, otherwise clearly documented estimates.
 - Basic road ribbon geometry with road-class width defaults.
+- Parallel sidewalk strips on suitable vehicle roads; pedestrian-only ways are excluded.
+- Endpoint-based road junction pads for shared endpoints with three or more connected road segments; counts are shown in the generation report.
 - Simple park and water polygon meshes.
 - Three.js scene integration, orbit controls, top-down view and frame-city action.
 - GLB export through Three.js GLTFExporter.
@@ -23,7 +25,7 @@ Branch: `chatgpt-development`
 - The current generator is a first playable geometry prototype, not a photorealistic city reconstruction.
 - OSM public Overpass endpoints can rate-limit or be temporarily unavailable. The app tries two public instances; production use should use a managed provider or self-hosted service.
 - Building height defaults are estimates where OSM has no height or level tags.
-- Road geometry is a simple ribbon; intersections, lane markings, curbs, sidewalks and traffic assets need later work.
+- Road geometry is still a simple ribbon. Junction pads are endpoint-based approximations; full road topology, lane markings, curbs, crossings and traffic assets remain future work.
 - Multipolygon relations, inner rings/holes, terrain elevation, textures, collision meshes and chunk streaming are not yet implemented.
 - The backend is intentionally not required for this browser-first milestone. GitHub Pages cannot host FastAPI or a database.
 - Export is currently a single GLB scene; tile-based export and Unreal-specific collision/material setup are future milestones.
