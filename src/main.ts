@@ -19,7 +19,7 @@ root.innerHTML = `
     <header class="topbar">
       <div class="brand"><span class="brand-mark">D</span><span>DHAKA WORLD BUILDER</span><span class="version">V1 · PREVIEW</span></div>
       <button id="save-project">Save</button><button id="load-project">Load</button>
-      <button id="export-glb" class="primary">Export GLB</button>
+      <button id="export-glb" class="primary" disabled>Export GLB</button>
     </header>
     <aside class="panel left">
       <section><h2>01 / Dhaka map</h2><div class="map-wrap"><div id="map" class="map"></div></div>
@@ -188,7 +188,7 @@ $('load-project').addEventListener('click', () => {
     try {
       const project = JSON.parse(await file.text()) as { bounds?: Bounds; features?: OSMFeature[] };
       if (!project.bounds || !Array.isArray(project.features)) throw new Error('Invalid Dhaka project file.');
-      selectedBounds = project.bounds; osmFeatures = project.features; updateSelection(selectedBounds);
+      selectedBounds = project.bounds; osmFeatures = project.features; selector.setSelection(selectedBounds); updateSelection(selectedBounds);
       $('feature-count').textContent = String(osmFeatures.length);
       $('building-count').textContent = String(osmFeatures.filter((f) => f.type === 'way' && Boolean(f.tags?.building)).length);
       $('road-count').textContent = String(osmFeatures.filter((f) => f.type === 'way' && Boolean(f.tags?.highway)).length);
