@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { MapView } from './map/MapView';
 import { AreaSelector } from './map/AreaSelector';
-import { boundsAreaKm2, validateSelection } from './map/DhakaBounds';
+import { boundsAreaKm2, boundsSizeMeters, validateSelection } from './map/DhakaBounds';
 import { SceneManager } from './renderer/SceneManager';
 import { fetchOSM, type OSMFeature } from './data/OSMClient';
 import { generateCity, type GenerationStats } from './generator/CityGenerator';
@@ -101,7 +101,7 @@ selector.onActiveChange = (active) => {
   setStatus(active ? 'Drag on the map to select a bounded area.' : 'Map selection mode ended.');
 };
 $('select-area').addEventListener('click', () => selector.setActive(!selector.isActive));
-$('clear-area').addEventListener('click', () => { selector.clear(); updateSelection(null); });
+$('clear-area').addEventListener('click', () => { selector.clear(); updateSelection(null); osmFeatures = []; $('feature-count').textContent = '0'; $('building-count').textContent = '0'; $('road-count').textContent = '0'; generateButton.disabled = true; exportButton.disabled = true; if (cityGroup) { scene.scene.remove(cityGroup); cityGroup = null; } $('status-features').textContent = '0 features'; $('viewport-hint').textContent = '· Waiting for map data'; });
 $('import-osm').addEventListener('click', async () => {
   if (!selectedBounds || busy) return;
   busy = true; importButton.disabled = true; generateButton.disabled = true;
