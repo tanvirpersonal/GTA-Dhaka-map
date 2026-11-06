@@ -40,27 +40,67 @@ export class SceneManager {
     this.resize();
   }
 
-  private city: THREE.Group | null = null;
+  /** Root of everything generated. Each child is one cell (or a single city) holding layer meshes. */
+  readonly world = new THREE.Group();
+  private worldAdded = false;
 
-  /** The currently displayed generated city, if any. */
-  get currentCity(): THREE.Group | null {
-    return this.city;
+  private ensureWorld(): void {
+    if (this.worldAdded) return;
+    this.world.name = 'dhaka-world';
+    this.scene.add(this.world);
+    this.worldAdded = true;
   }
 
-  /** Replace the displayed city and frame the camera around it. */
+  /**
+   * What to export: the single group when only one exists (keeps flat layer names),
+   * the whole world when there are many cells, or null when empty.
+   */
+  get currentCity(): THREE.Object3D | null {
+    const n = this.world.children.length;
+    if (n === 0) return null;
+    return n === 1 ? this.world.children[0] : this.world;
+  }
+
+  /** Names of the cells currently in the scene. */
+  get cellIds(): string[] {
+    return this.world.children.map((c) => c.name);
+  }
+
+  /** Add a cell, replacing (and freeing) any existing cell with the same name. */
+  setCell(group: THREE.Group): void {
+    this.ensureWorld();
+    this.removeCell(group.name);
+    this.world.add(group);
+  }
+
+  removeCell(id: string): void {
+    const old = this.world.getObjectByName(id);
+    if (!old) return;
+    this.world.remove(old);
+    disposeCity(old);
+  }
+
+  clearCells(): void {
+    for (const id of this.cellIds) this.removeCell(id);
+  }
+
+  /** Replace everything with a single city and optionally frame the camera around it. */
   setCity(group: THREE.Group | null, frame = true): void {
-    if (this.city) {
-      this.scene.remove(this.city);
-      disposeCity(this.city);
-    }
-    this.city = group;
+    this.clearCells();
     if (!group) return;
-    this.scene.add(group);
-    if (!frame) return;
-    const size = new THREE.Box3().setFromObject(group).getSize(new THREE.Vector3());
+    this.setCell(group);
+    if (frame) this.frameWorld();
+  }
+
+  /** Point the camera at the whole generated world from a comfortable angle. */
+  frameWorld(): void {
+    const box = new THREE.Box3().setFromObject(this.world);
+    if (box.isEmpty()) return;
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
     const r = Math.max(size.x, size.z, 100);
-    this.camera.position.set(r * 0.7, r * 0.6, r * 0.7);
-    this.controls.target.set(0, 0, 0);
+    this.camera.position.set(center.x + r * 0.7, r * 0.6, center.z + r * 0.7);
+    this.controls.target.set(center.x, 0, center.z);
     this.controls.update();
   }
 
