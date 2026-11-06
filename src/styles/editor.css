@@ -249,3 +249,79 @@
 .panel.right .kv dd {
   word-break: break-word;
 }
+
+/* Build progress */
+.progress-row {
+  margin-bottom: 10px;
+}
+.progress-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.progress-value {
+  font-family: var(--mono);
+  color: var(--text-dim);
+}
+.bar {
+  height: 8px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent-2);
+  transition: width 0.2s ease;
+}
+.progress-row:nth-of-type(2) .bar-fill {
+  background: var(--ok);
+}
+.progress-counts {
+  margin: 6px 0 10px;
+}
+.cellmap {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+}
+.cellmap .cell {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+}
+.cellmap .st-importing {
+  background: var(--accent-2);
+  animation: cell-pulse 1s ease-in-out infinite;
+}
+.cellmap .st-imported {
+  background: #3b6ea8;
+}
+.cellmap .st-generating {
+  background: var(--accent);
+  animation: cell-pulse 1s ease-in-out infinite;
+}
+.cellmap .st-ready {
+  background: var(--ok);
+  border-color: transparent;
+}
+.cellmap .st-error {
+  background: var(--danger);
+}
+@keyframes cell-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cellmap .st-importing,
+  .cellmap .st-generating {
+    animation: none;
+  }
+  .bar-fill {
+    transition: none;
+  }
+}
