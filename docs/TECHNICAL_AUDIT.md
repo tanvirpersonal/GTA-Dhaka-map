@@ -34,11 +34,15 @@ The next phase should prioritize correctness and repeatable tests over adding mo
 
 ### P0 — OSM polygon correctness
 
-**Observed:** `OSMParser` handles closed way rings and relation members whose individual geometry is already closed. It does not stitch fragmented outer/inner member ways into complete rings.
+**Observed:** The parser previously accepted only relation member ways that were individually closed.
 
-**Action:** Preserve member/node identity where needed, stitch rings, validate closure and winding, associate holes with the correct outer ring, and report invalid geometry.
+**Change now committed:** Relation member geometries are joined by matching endpoint coordinates, in either direction and in arbitrary member order. Closed rings are emitted independently, inner rings are assigned to containing outers, and incomplete chains produce an `open-ring` warning instead of invalid polygon output.
 
-**Acceptance tests:** Closed building way; multipolygon with inner ring; fragmented outer ring; multiple outers with separate holes; missing geometry and malformed rings.
+**Remaining risks:** Endpoint matching currently relies on exact Overpass coordinate equality. Ambiguous branching member graphs, ring self-intersections, winding normalization and robust geometric validity checks are not yet handled.
+
+**Acceptance tests added:** Existing closed-way and closed-hole cases; fragmented outer ring in mixed order/direction; fragmented inner courtyard; multiple outer rings with a contained hole; incomplete fragmented ring.
+
+**Validation status:** Tests are committed but not executed in this environment.
 
 ### P0 — Cell boundary continuity
 
@@ -104,15 +108,15 @@ Defer FastAPI/PostGIS/cloud storage until measured import size, persistence or c
 
 ## Progress update — 6 November 2026
 
-The first import-cancellation patch is now in the working branch:
+The import-cancellation patch and the first multipolygon-stitching pass are now in the working branch:
 
 - `TiledImport` checks cancellation before tile work and after asynchronous cache reads/writes.
 - The retry-delay helper in `OSMClient` now handles an already-aborted signal, clears its timer and removes its abort listener when the delay completes or is cancelled.
 - `fetchOSM` checks cancellation before starting each request and after parsing a successful response.
 - Retry configuration now rejects a non-positive/non-integer attempt count and an empty endpoint list.
-- Unit tests were added for pre-aborted requests, retry-listener cleanup and invalid retry configuration. The earlier tiled-import tests cover abort before cache access and abort after a cache read settles.
+- Unit tests cover pre-aborted requests, retry-listener cleanup, invalid retry configuration, tiled-cache cancellation and fragmented multipolygon rings.
 
-**Validation status:** Tests have been added to the repository but have not been executed in this environment. Network-fetch abort behavior, mid-response cancellation and full import integration still need runtime verification. Do not close Phase 1 until the complete test suite and build pass.
+**Validation status:** Tests have been added to the repository but have not been executed in this environment. Network-fetch abort behavior, mid-response cancellation, ambiguous multipolygon junctions, self-intersections and full import integration still need runtime verification. Do not close these phases until the complete test suite and build pass.
 
 ## Guardrails
 
