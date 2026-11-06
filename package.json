@@ -14,7 +14,8 @@
   "dependencies": {
     "maplibre-gl": "^6.16.0",
     "three": "^0.187.0",
-    "@capacitor/core": "^7.4.3"
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/android": "^7.4.3"
   },
   "devDependencies": {
     "@types/three": "^0.187.0",
