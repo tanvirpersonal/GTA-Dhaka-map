@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EditHistory } from '../../src/editor/EditHistory';
+import { changedIds, EditHistory } from '../../src/editor/EditHistory';
 
 describe('EditHistory', () => {
   it('undoes and redoes patches', () => {
@@ -37,5 +37,14 @@ describe('EditHistory', () => {
     h.reset({ z: { hidden: true } });
     expect(h.canUndo).toBe(false);
     expect(h.current).toEqual({ z: { hidden: true } });
+  });
+});
+
+describe('changedIds', () => {
+  it('lists added, removed and changed overrides only', () => {
+    const a = { x: { heightM: 10 }, y: { hidden: true }, z: { widthM: 3 } };
+    const b = { x: { heightM: 12 }, z: { widthM: 3 }, w: { hidden: true } };
+    expect(changedIds(a, b).sort()).toEqual(['w', 'x', 'y']);
+    expect(changedIds(a, a)).toEqual([]);
   });
 });
