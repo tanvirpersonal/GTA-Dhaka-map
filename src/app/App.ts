@@ -302,6 +302,8 @@ export class App {
     const button = el<HTMLButtonElement>(this.root, '#btn-generate');
     button.disabled = false;
     button.textContent = 'Cancel';
+    const mobileButton = el<HTMLButtonElement>(this.root, '#mobile-generate');
+    mobileButton.textContent = 'Cancel generation';
     this.cancelRequested = false;
     this.abort = new AbortController();
     const signal = this.abort.signal;
@@ -418,6 +420,7 @@ export class App {
       this.cancelRequested = false;
       button.disabled = false;
       button.textContent = 'Generate City';
+      mobileButton.textContent = 'Generate 3D City';
     }
   }
 
