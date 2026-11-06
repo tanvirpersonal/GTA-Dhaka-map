@@ -105,6 +105,29 @@ export class SceneManager {
     if (this.walker) this.walker.position.set(0, 0, 0);
   }
 
+  /** Add a completed city block without replacing blocks already rendered. */
+  addCityBlock(block: THREE.Group): void {
+    if (!this.city) {
+      this.city = new THREE.Group();
+      this.city.name = 'dhaka-city';
+      this.scene.add(this.city);
+      this.walkColliders = [];
+    }
+    this.city.add(block);
+    block.traverse((object) => {
+      const colliders = object.userData.walkColliders as WalkCollider[] | undefined;
+      if (colliders) this.walkColliders.push(...colliders);
+    });
+  }
+
+  /** Frame the shared city origin using the full selected geographic extent. */
+  frameCity(widthM: number, heightM: number): void {
+    const r = Math.max(widthM, heightM, 100);
+    this.camera.position.set(r * 0.72, r * 0.62, r * 0.72);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+  }
+
   /** Toggle a visible third-person character that can explore the generated city. */
   setWalkMode(active: boolean): void {
     if (active && !this.city) return;
