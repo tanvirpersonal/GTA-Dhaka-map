@@ -102,6 +102,18 @@ Defer FastAPI/PostGIS/cloud storage until measured import size, persistence or c
 | 8 | Real streaming and multi-level LOD | Camera-driven load/unload and LOD benchmark pass |
 | 9 | Terrain and optional backend | Added only with validated requirements |
 
+## Progress update — 6 November 2026
+
+The first import-cancellation patch is now in the working branch:
+
+- `TiledImport` checks cancellation before tile work and after asynchronous cache reads/writes.
+- The retry-delay helper in `OSMClient` now handles an already-aborted signal, clears its timer and removes its abort listener when the delay completes or is cancelled.
+- `fetchOSM` checks cancellation before starting each request and after parsing a successful response.
+- Retry configuration now rejects a non-positive/non-integer attempt count and an empty endpoint list.
+- Unit tests were added for pre-aborted requests, retry-listener cleanup and invalid retry configuration. The earlier tiled-import tests cover abort before cache access and abort after a cache read settles.
+
+**Validation status:** Tests have been added to the repository but have not been executed in this environment. Network-fetch abort behavior, mid-response cancellation and full import integration still need runtime verification. Do not close Phase 1 until the complete test suite and build pass.
+
 ## Guardrails
 
 - Keep `c2` unchanged as the audit baseline; work on `c2-stabilization`.
