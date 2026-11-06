@@ -100,9 +100,11 @@ export async function generateCityAsync(
   const parts = planParts(result, proj, overrides, layers);
   const built: (THREE.Mesh | null)[] = [];
   for (let i = 0; i < parts.length; i++) {
-    built.push(parts[i]());
+    const mesh = parts[i]();
+    built.push(mesh);
     opts.onStep?.((i + 1) / parts.length);
-    if (opts.yieldFn) await opts.yieldFn();
+    // Only wait for a repaint after real work; empty layers cost nothing.
+    if (mesh && opts.yieldFn) await opts.yieldFn();
   }
   return assemble(opts.name ?? 'dhaka-city', built, layers);
 }
