@@ -36,8 +36,7 @@ const TEMPLATE = `
     <div class="brand"><img src="${import.meta.env.BASE_URL}favicon.svg" alt="" />DHAKA WORLD BUILDER</div>
     <button id="btn-open" title="Open a saved project (.dwb.json)">Open</button>
     <input id="file-open" type="file" accept=".json,application/json" hidden />
-    <button id="btn-import" disabled title="Import OpenStreetMap data for the selected area">Import</button>
-    <button id="btn-generate" disabled title="Build the 3D city from imported data">Generate</button>
+    <button id="btn-generate" disabled title="Import map data and build the 3D city automatically">Generate City</button>
     <button id="btn-walk" disabled title="Explore the generated city on foot">Walk mode</button>
     <button id="btn-undo" disabled title="Undo (Ctrl+Z)">Undo</button>
     <button id="btn-redo" disabled title="Redo (Ctrl+Shift+Z)">Redo</button>
@@ -45,7 +44,7 @@ const TEMPLATE = `
     <button id="btn-export" disabled title="Download the city as a GLB file">Export GLB</button>
     <button id="btn-export-zip" disabled title="Download each layer as a separate GLB in a ZIP, with a manifest">Export layers</button>
     <span class="spacer"></span>
-    <span class="hint">Select area → Import → Generate → Export</span>
+    <span class="hint">Select area → Generate City → Export</span>
   </header>
 
   <aside class="panel left">
@@ -207,10 +206,6 @@ export class App {
       if (s) this.mapView.fitTo(s.west, s.south, s.east, s.north);
     });
 
-    el(root, '#btn-import').addEventListener('click', () => {
-      if (this.abort) this.abort.abort();
-      else void this.runImport();
-    });
 
     const fileInput = el<HTMLInputElement>(root, '#file-open');
     el(root, '#btn-open').addEventListener('click', () => fileInput.click());
@@ -259,7 +254,6 @@ export class App {
       const has = bounds !== null;
       (el(this.root, '#btn-clear') as HTMLButtonElement).disabled = !has;
       (el(this.root, '#btn-fit') as HTMLButtonElement).disabled = !has;
-      (el(this.root, '#btn-import') as HTMLButtonElement).disabled = !has;
       // A new selection invalidates the previous import.
       this.importResult = null;
       this.cityBlocks = [];
@@ -270,20 +264,18 @@ export class App {
     store.on('status', () => this.renderStatus());
   }
 
-  private async runImport(): Promise<void> {
+  private async runImport(): Promise<boolean> {
     const bounds = store.selection;
-    if (!bounds) return;
+    if (!bounds) return false;
     const areaKm2 = boundsAreaKm2(bounds);
     if (areaKm2 > 100 && !window.confirm(
       `You selected ${areaKm2.toFixed(0)} km². Full Dhaka import may require thousands of OSM tile requests and can take a long time. Previously cached tiles will be reused if cancelled and restarted. Continue?`,
-    )) return;
-    const btn = el<HTMLButtonElement>(this.root, '#btn-import');
+    )) return false;
     this.importResult = null;
     this.setImportProgress(0, 'Preparing map import…', true);
     this.renderImport();
     try {
       this.abort = new AbortController();
-      btn.textContent = 'Cancel import';
       store.setStatus('info', 'Importing from OpenStreetMap…');
       const result = await importTiled(bounds, {
         signal: this.abort.signal,
@@ -299,28 +291,37 @@ export class App {
       this.cityBlocks = loadBlockProgress(assignFeaturesToBlocks(createCityBlocks(bounds), result.features));
       this.mapView.setCityBlocks(this.cityBlocks);
       this.renderBlocks();
-      this.setImportProgress(100, 'Map data imported · ready for 3D generation', true);
+      this.setImportProgress(20, 'Import complete · preparing 3D generation', true);
       const n = result.features.length;
-      store.setStatus(result.warnings.length ? 'warn' : 'info', `Imported ${n} feature${n === 1 ? '' : 's'}.`);
+      store.setStatus(result.warnings.length ? 'warn' : 'info', `Imported ${n} features. Starting 3D generation…`);
+      return true;
     } catch (err) {
       const e = err as Error;
-      if (e.name === 'AbortError') { this.setImportProgress(0, 'Import cancelled', false); store.setStatus('info', 'Import cancelled.'); }
+      if (e.name === 'AbortError') { this.setImportProgress(0, 'Generation cancelled', false); store.setStatus('info', 'Generation cancelled.'); }
       else { this.setImportProgress(0, 'Import failed', false); store.setStatus('error', err instanceof OSMImportError ? e.message : `Import failed: ${e.message}`); }
+      return false;
     } finally {
       this.abort = null;
-      btn.textContent = 'Import';
       this.renderImport();
     }
   }
 
   private async runGenerate(): Promise<void> {
-    const result = this.importResult;
+    let result = this.importResult;
     const bounds = store.selection;
-    if (!result || !bounds) return;
+    if (!bounds) return;
 
     const button = el<HTMLButtonElement>(this.root, '#btn-generate');
     button.disabled = true;
-    button.textContent = 'Generating…';
+    button.textContent = 'Cancel';
+    this.setImportProgress(0, 'Starting city build…', true);
+    if (!result) {
+      this.abort = new AbortController();
+      const imported = await this.runImport();
+      if (!imported) { button.disabled = false; button.textContent = 'Generate City'; return; }
+      result = this.importResult;
+    }
+    if (!result) { button.disabled = false; button.textContent = 'Generate City'; return; }
     this.setWorking(bounds, result, {}, defaultLayers());
     const blocks = (this.cityBlocks.length
       ? this.cityBlocks
@@ -372,7 +373,9 @@ export class App {
         saveBlockProgress(this.cityBlocks);
         this.renderBlocks();
         el(this.root, '#placeholder').style.display = 'none';
-        store.setStatus('info', `Rendering city blocks: ${completed}/${total} · ${Math.round(completed / total * 100)}%`);
+        const overall = 20 + Math.round((completed / total) * 80);
+        this.setImportProgress(overall, `Generating 3D city blocks ${completed}/${total}`, true);
+        store.setStatus('info', `City generation ${overall}% · block ${completed}/${total}`);
         await yieldFrame();
       }
 
@@ -399,7 +402,7 @@ export class App {
       store.setStatus('error', `Block generation stopped: ${(err as Error).message}`);
     } finally {
       button.disabled = false;
-      button.textContent = 'Generate';
+      button.textContent = 'Generate City';
     }
   }
 
@@ -593,7 +596,8 @@ export class App {
     const info = el(this.root, '#imp-info');
     const notice = el(this.root, '#imp-notice');
     const r = this.importResult;
-    (el(this.root, '#btn-generate') as HTMLButtonElement).disabled = !r || r.features.length === 0;
+    const generateButton = el<HTMLButtonElement>(this.root, '#btn-generate');
+    generateButton.disabled = !store.selection || (!!r && r.features.length === 0);
     if (!r) {
       info.innerHTML = '<dt>Status</dt><dd>Nothing imported</dd>';
       notice.innerHTML = '';
