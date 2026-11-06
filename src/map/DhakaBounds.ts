@@ -11,11 +11,11 @@ export const DHAKA_EXTENT: Bounds = {
 /** Default map centre: Tejgaon Industrial Area, the first test area. */
 export const TEJGAON_CENTER: [number, number] = [90.3995, 23.7625];
 
-/** Maximum selection area, in square kilometres (imported as <=0.25 km² tiles). */
-export const MAX_AREA_KM2 = 4.0;
+/** Maximum selection area in km². Large enough for all of Dhaka; it is built as a 10x10 grid of cells. */
+export const MAX_AREA_KM2 = 700;
 
-/** Warn above this fraction of the maximum area. */
-export const WARN_AREA_KM2 = 2.0;
+/** Warn above this area: the import takes many requests and can run for a long time. */
+export const WARN_AREA_KM2 = 8;
 
 const EARTH_RADIUS_M = 6_371_008.8;
 
@@ -79,7 +79,7 @@ export function validateSelection(b: Bounds): SelectionCheck {
     return {
       ok: true,
       level: 'warn',
-      message: 'Large selection: importing and generating may be slow.',
+      message: 'Large selection: it is built as a 10×10 grid and may take a long time to import.',
     };
   }
   return { ok: true, level: 'ok', message: 'Selection size is fine.' };
