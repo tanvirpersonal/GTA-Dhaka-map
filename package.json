@@ -8,15 +8,18 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:android": "VITE_BASE=/ npm run build && cap sync android"
   },
   "dependencies": {
     "maplibre-gl": "^6.16.0",
-    "three": "^0.187.0"
+    "three": "^0.187.0",
+    "@capacitor/core": "^7.4.3"
   },
   "devDependencies": {
     "@types/three": "^0.187.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.6"
+    "vite": "^8.3.6",
+    "@capacitor/cli": "^7.4.3"
   }
 }
