@@ -1,4 +1,5 @@
 import type { Bounds } from '../types/editor';
+import type { LonLat, MapFeature } from '../types/features';
 import { boundsAreaKm2 } from '../map/DhakaBounds';
 import { TILE_AREA_KM2 } from './TileGrid';
 
@@ -70,4 +71,27 @@ export function estimateBuild(bounds: Bounds, gridSize = GRID_SIZE): BuildEstima
   const cellKm2 = boundsAreaKm2(bounds) / (gridSize * gridSize);
   const tiles = gridSize * gridSize * Math.max(1, Math.ceil(cellKm2 / TILE_AREA_KM2));
   return { tiles, minutes: Math.ceil((tiles * 2.5) / 60) };
+}
+
+const anchorOf = (f: MapFeature): LonLat => ('points' in f ? f.points[0] : f.outer[0]);
+
+/** Group features by the cell holding their first point (points outside the grid snap to the nearest cell). */
+export function partitionByCell(cells: GridCell[], features: MapFeature[]): Map<string, MapFeature[]> {
+  const out = new Map<string, MapFeature[]>();
+  if (cells.length === 0) return out;
+  const west = Math.min(...cells.map((c) => c.bounds.west));
+  const east = Math.max(...cells.map((c) => c.bounds.east));
+  const south = Math.min(...cells.map((c) => c.bounds.south));
+  const north = Math.max(...cells.map((c) => c.bounds.north));
+  for (const f of features) {
+    const [lon, lat] = anchorOf(f);
+    const cell =
+      cellAt(cells, lon, lat) ??
+      cellAt(cells, Math.min(east, Math.max(west, lon)), Math.min(north, Math.max(south, lat)));
+    if (!cell) continue;
+    let list = out.get(cell.id);
+    if (!list) out.set(cell.id, (list = []));
+    list.push(f);
+  }
+  return out;
 }
