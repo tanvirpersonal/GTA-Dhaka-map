@@ -313,7 +313,6 @@ export class App {
     const blocks = this.cityBlocks.length
       ? this.cityBlocks
       : assignFeaturesToBlocks(createCityBlocks(bounds), result.features);
-    const featureById = new Map(result.features.map((feature) => [feature.id, feature]));
     const root = new THREE.Group();
     root.name = 'dhaka-city';
     root.userData.modelVersion = 1;
