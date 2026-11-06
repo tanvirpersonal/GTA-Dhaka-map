@@ -16,6 +16,8 @@ export interface TiledProgress {
 
 export interface TiledOptions extends Pick<FetchOptions, 'signal' | 'onRetry'> {
   onProgress?: (p: TiledProgress) => void;
+  /** Called as soon as each tile is ready, with only newly seen features. */
+  onTile?: (p: { tile: Bounds; features: MapFeature[]; done: number; total: number; fromCache: boolean }) => void | Promise<void>;
   /** Download nearby tiles first so a useful core city area is available early. */
   priorityCenter?: [number, number];
 }
@@ -59,11 +61,14 @@ export async function importTiled(bounds: Bounds, opts: TiledOptions = {}): Prom
       putCached(tile, result);
       needPause = true;
     }
+    const tileFeatures: MapFeature[] = [];
     for (const f of result.features) {
       if (seen.has(f.id)) continue;
       seen.add(f.id);
       features.push(f);
+      tileFeatures.push(f);
     }
+    await opts.onTile?.({ tile, features: tileFeatures, done: i + 1, total: tiles.length, fromCache });
     for (const w of result.warnings) {
       // An empty tile is normal when stitching; only the merged result decides "empty".
       if (w.code === 'empty' || w.code === 'no-buildings') continue;
