@@ -92,6 +92,18 @@ export class SceneManager {
     if (frame) this.frameWorld();
   }
 
+  /**
+   * Prepare an empty world that will be `widthM` x `depthM` metres, centred on the origin:
+   * sizes the ground and puts the camera where all of it is in view.
+   */
+  frameExtent(widthM: number, depthM: number): void {
+    const r = Math.max(widthM, depthM, 100);
+    this.setGroundSize(r * 1.2);
+    this.camera.position.set(r * 0.5, r * 0.55, r * 0.7);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+  }
+
   /** Point the camera at the whole generated world from a comfortable angle. */
   frameWorld(): void {
     const box = new THREE.Box3().setFromObject(this.world);
