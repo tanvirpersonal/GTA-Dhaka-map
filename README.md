@@ -678,6 +678,18 @@ The repository has moved beyond the original planning stage. The current code co
 
 Do not mark a milestone complete until its acceptance tests pass. See [the technical audit](docs/TECHNICAL_AUDIT.md) for detailed findings and acceptance criteria.
 
+## 19. Latest stabilization update (6 November 2026)
+
+The stabilization branch now includes additional import-cancellation safeguards:
+
+- Tiled import checks abort state around asynchronous cache operations.
+- Overpass retry delays clean up their timer and abort listener.
+- Overpass requests check cancellation before each attempt and after successful response parsing.
+- Invalid retry settings (zero/negative/non-integer attempts or an empty endpoint list) fail early.
+- Unit tests cover tiled-cache cancellation and Overpass retry cancellation/configuration.
+
+The tests are committed but **have not yet been run** in this environment. Build and full-suite validation remain outstanding. Continue work on `c2-stabilization`; the original `c2` branch remains the untouched baseline. See [the technical audit](docs/TECHNICAL_AUDIT.md) for the remaining acceptance tests.
+
 ## References
 
 - OpenStreetMap: https://www.openstreetmap.org/
