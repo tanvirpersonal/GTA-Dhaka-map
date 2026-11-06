@@ -3,7 +3,6 @@ import { MapView } from '../map/MapView';
 import { AreaSelector } from '../map/AreaSelector';
 import { boundsAreaKm2, boundsSizeMeters, DHAKA_EXTENT, MAX_AREA_KM2, validateSelection } from '../map/DhakaBounds';
 import { SceneManager } from '../renderer/SceneManager';
-import { OSMImportError } from '../data/OSMClient';
 import { importTiled } from '../data/TiledImport';
 import { assignFeaturesToBlocks, createCityBlocks, type CityBlock } from '../data/CityBlockGrid';
 import { loadBlockProgress, saveBlockProgress, summarizeBlockProgress } from '../data/BlockProgress';
