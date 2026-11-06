@@ -6,6 +6,8 @@ import type { SceneManager } from '../renderer/SceneManager';
 export interface Picked {
   id: string;
   layer: string;
+  /** Name of the cell group that owns the mesh. */
+  cell: string;
 }
 
 interface SelEvents extends Record<string, unknown> {
@@ -50,9 +52,9 @@ export class SelectionManager extends Emitter<SelEvents> {
   refreshHighlight(): void {
     this.clearOverlay();
     const sel = this.selected;
-    const city = this.sm.currentCity;
-    if (!sel || !city) return;
-    const mesh = city.getObjectByName(sel.layer) as THREE.Mesh | undefined;
+    if (!sel) return;
+    const cell = this.sm.world.getObjectByName(sel.cell);
+    const mesh = cell?.getObjectByName(sel.layer) as THREE.Mesh | undefined;
     const pick = mesh?.userData.pick as PickMap | undefined;
     const range = pick && rangeOf(pick, sel.id);
     if (!mesh || !range) return;
@@ -96,8 +98,7 @@ export class SelectionManager extends Emitter<SelEvents> {
   }
 
   private pickAt(clientX: number, clientY: number): void {
-    const city = this.sm.currentCity;
-    if (!city) return;
+    if (this.sm.world.children.length === 0) return;
     const rect = this.sm.renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(
       ((clientX - rect.left) / rect.width) * 2 - 1,
@@ -105,13 +106,16 @@ export class SelectionManager extends Emitter<SelEvents> {
     );
     this.raycaster.setFromCamera(ndc, this.sm.camera);
 
-    const meshes = city.children.filter((c): c is THREE.Mesh => c.visible && !!c.userData.pick);
+    const meshes: THREE.Mesh[] = [];
+    this.sm.world.traverseVisible((o) => {
+      if (o.userData.pick) meshes.push(o as THREE.Mesh);
+    });
     const hit = this.raycaster.intersectObjects(meshes, false)[0];
     if (!hit || hit.faceIndex == null) {
       this.select(null);
       return;
     }
     const id = featureAtFace(hit.object.userData.pick as PickMap, hit.faceIndex);
-    this.select(id ? { id, layer: hit.object.name } : null);
+    this.select(id ? { id, layer: hit.object.name, cell: hit.object.parent?.name ?? '' } : null);
   }
 }
