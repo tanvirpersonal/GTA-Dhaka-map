@@ -44,13 +44,13 @@ export async function importTiled(bounds: Bounds, opts: TiledOptions = {}): Prom
 
   for (let i = 0; i < tiles.length; i++) {
     const tile = tiles[i];
-    let result = getCached(tile);
+    let result = await getCached(tile);
     const fromCache = !!result;
     if (!result) {
       if (needPause) await sleep(PAUSE_BETWEEN_TILES_MS, opts.signal);
       const raw = await fetchOSM(tile, { signal: opts.signal, onRetry: opts.onRetry });
       result = parseOverpass(raw);
-      putCached(tile, result);
+      await putCached(tile, result);
       needPause = true;
     }
     for (const f of result.features) {
