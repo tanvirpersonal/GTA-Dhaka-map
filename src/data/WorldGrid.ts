@@ -1,4 +1,6 @@
 import type { Bounds } from '../types/editor';
+import { boundsAreaKm2 } from '../map/DhakaBounds';
+import { TILE_AREA_KM2 } from './TileGrid';
 
 /** The world is always split into GRID_SIZE x GRID_SIZE cells (10 x 10 = 100). */
 export const GRID_SIZE = 10;
@@ -54,4 +56,18 @@ export function cellAt(cells: GridCell[], lon: number, lat: number): GridCell | 
     cells.find((c) => lon >= c.bounds.west && lon <= c.bounds.east && lat >= c.bounds.south && lat <= c.bounds.north) ??
     null
   );
+}
+
+export interface BuildEstimate {
+  /** Number of Overpass requests (each at most TILE_AREA_KM2). */
+  tiles: number;
+  /** Rough wall-clock minutes at ~2.5 s per uncached request. */
+  minutes: number;
+}
+
+/** Rough cost of building `bounds` as a gridSize x gridSize grid, each cell split into small tiles. */
+export function estimateBuild(bounds: Bounds, gridSize = GRID_SIZE): BuildEstimate {
+  const cellKm2 = boundsAreaKm2(bounds) / (gridSize * gridSize);
+  const tiles = gridSize * gridSize * Math.max(1, Math.ceil(cellKm2 / TILE_AREA_KM2));
+  return { tiles, minutes: Math.ceil((tiles * 2.5) / 60) };
 }
