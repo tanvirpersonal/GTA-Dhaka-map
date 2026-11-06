@@ -11,14 +11,23 @@ export async function exportLayersZip(city: THREE.Object3D, bounds: Bounds): Pro
   const entries: ZipEntry[] = [];
   const layers: { name: string; file: string; triangles: number }[] = [];
 
+  // `city` is either a group of layer meshes (one area) or a world of cell groups (a grid).
+  const meshes: { mesh: THREE.Mesh; cell: string | null }[] = [];
   for (const child of city.children) {
-    const mesh = child as THREE.Mesh;
-    if (!mesh.isMesh || !mesh.visible) continue;
+    if ((child as THREE.Mesh).isMesh) meshes.push({ mesh: child as THREE.Mesh, cell: null });
+    else
+      for (const m of child.children)
+        if ((m as THREE.Mesh).isMesh) meshes.push({ mesh: m as THREE.Mesh, cell: child.name });
+  }
+
+  for (const { mesh, cell } of meshes) {
+    if (!mesh.visible || (cell !== null && city.getObjectByName(cell)?.visible === false)) continue;
     const glb = await exportGLB(mesh);
-    const file = `${mesh.name}.glb`;
+    const name = cell ? `${cell}_${mesh.name}` : mesh.name;
+    const file = `${name}.glb`;
     const g = mesh.geometry;
     layers.push({
-      name: mesh.name,
+      name,
       file,
       triangles: Math.round((g.index ? g.index.count : g.getAttribute('position').count) / 3),
     });
