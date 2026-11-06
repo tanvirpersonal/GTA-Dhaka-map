@@ -1,7 +1,7 @@
 # GTA Dhaka Map — Project Blueprint
 
 > **Project:** Dhaka World Builder  
-> **Purpose:** Build a browser-based tool that imports real Dhaka geographic data, converts it into an editable 3D city, and exports game-ready assets for the GTA Dhaka game.  
+> **Purpose:** Build a browser and desktop tool that imports real Dhaka geographic data, converts it into an editable 3D city, and exports game-ready assets for the GTA Dhaka game.  
 > **Current stage:** Active prototype — reliability, geometry quality, mobile UX and game-export validation in progress  
 > **Initial scope:** Dhaka, Bangladesh only
 
@@ -15,7 +15,7 @@ This is **not** the GTA game itself. It is the map-building pipeline and editor 
 
 ### Core workflow
 
-1. Open Dhaka World Builder in a browser.
+1. Open Dhaka World Builder in a browser or the Tauri desktop application.
 2. View a 2D map of Dhaka.
 3. Select a bounded area (start with a small test area).
 4. Fetch geographic data for that area.
@@ -93,6 +93,17 @@ GitHub Pages hosts the static frontend only. It does not run Python, Node.js, da
 - **Docker:** reproducible backend deployment.
 
 The backend can be deployed separately (for example, to a suitable cloud host). The frontend on GitHub Pages calls it through HTTPS. Do not commit API secrets to the frontend repository.
+
+### Desktop application — Tauri 2
+
+The same Vite + TypeScript + Three.js editor can also run as a native desktop application through Tauri 2. The desktop shell shares the browser code, while the GitHub Pages deployment remains available.
+
+- Development: `npm run desktop:dev`
+- Build platform-specific installers: `npm run desktop:build`
+- Desktop setup, operating-system prerequisites and limitations: [docs/DESKTOP_APP.md](docs/DESKTOP_APP.md)
+
+The desktop wrapper is a distribution and native-integration step, not an automatic 3D performance upgrade. Large-city rendering still needs measured optimization in the Three.js engine.
+
 
 ### Why start without a mandatory backend?
 
