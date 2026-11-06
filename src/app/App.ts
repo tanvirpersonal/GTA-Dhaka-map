@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MapView } from '../map/MapView';
 import { AreaSelector } from '../map/AreaSelector';
-import { boundsAreaKm2, boundsSizeMeters, MAX_AREA_KM2, validateSelection } from '../map/DhakaBounds';
+import { boundsAreaKm2, boundsSizeMeters, DHAKA_EXTENT, MAX_AREA_KM2, validateSelection } from '../map/DhakaBounds';
 import { SceneManager } from '../renderer/SceneManager';
 import { OSMImportError } from '../data/OSMClient';
 import { importTiled } from '../data/TiledImport';
@@ -57,6 +57,7 @@ const TEMPLATE = `
       <h2>Tools</h2>
       <div class="tool-row">
         <button id="btn-select" class="primary">Select Area</button>
+        <button id="btn-full-dhaka" title="Select the complete Dhaka coverage extent">Full Dhaka</button>
         <button id="btn-clear" disabled>Clear</button>
         <button id="btn-fit" disabled>Zoom to selection</button>
       </div>
@@ -193,6 +194,13 @@ export class App {
       }
     };
 
+    el(root, '#btn-full-dhaka').addEventListener('click', () => {
+      selector.setActive(false);
+      store.setSelection({ ...DHAKA_EXTENT });
+      this.mapView.fitTo(DHAKA_EXTENT.west, DHAKA_EXTENT.south, DHAKA_EXTENT.east, DHAKA_EXTENT.north);
+      store.setStatus('warn', 'Full Dhaka coverage selected. This is a large tiled OSM import; cached tiles are reused after cancellation.');
+    });
+
     el(root, '#btn-clear').addEventListener('click', () => selector.clear());
     el(root, '#btn-fit').addEventListener('click', () => {
       const s = store.selection;
@@ -265,6 +273,10 @@ export class App {
   private async runImport(): Promise<void> {
     const bounds = store.selection;
     if (!bounds) return;
+    const areaKm2 = boundsAreaKm2(bounds);
+    if (areaKm2 > 100 && !window.confirm(
+      `You selected ${areaKm2.toFixed(0)} km². Full Dhaka import may require thousands of OSM tile requests and can take a long time. Previously cached tiles will be reused if cancelled and restarted. Continue?`,
+    )) return;
     const btn = el<HTMLButtonElement>(this.root, '#btn-import');
     this.importResult = null;
     this.setImportProgress(0, 'Preparing map import…', true);
