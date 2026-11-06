@@ -557,6 +557,7 @@ The Unreal import guide must document scale, axis orientation, collision setup, 
 - [ ] Test Tejgaon–Farmgate corridor.
 - [ ] Add Dhanmondi coverage.
 - [ ] Improve intersections and sidewalks.
+- [ ] Validate fragmented OSM multipolygon assembly and invalid-ring handling.
 - [ ] Add tile streaming and LOD.
   - [x] Tiled import: selections up to 4 km² are fetched as ≤0.25 km² tiles, cached per tile and de-duplicated.
   - [ ] Stream tiles into the 3D scene and add LOD (generation is still one merged city per selection).
@@ -625,7 +626,7 @@ The repository has moved beyond the original planning stage. The current code co
 
 - MapLibre Dhaka map, rectangle selection, bounds validation and selection preview.
 - OSM/Overpass request client with endpoint fallback, retry/backoff and abort signal support.
-- OSM feature parsing for buildings, roads, paths, waterways, water and green areas.
+- OSM feature parsing for buildings, roads, paths, waterways, water and green areas, including an initial endpoint-stitching pass for fragmented multipolygon rings.
 - Tiled import with a pause between uncached tile requests.
 - IndexedDB tile cache with a seven-day TTL.
 - A 10×10 centre-out grid pipeline that overlaps cell import with geometry generation.
@@ -639,9 +640,9 @@ The repository has moved beyond the original planning stage. The current code co
 - Current LOD hides distant detail layers; it does not substitute low-poly representations.
 - Progressive cell generation exists, but camera-driven world streaming/unloading is not complete.
 - Cell-edge features are de-duplicated by ID, not geometrically clipped. Road continuity needs tests.
-- Multipolygon parsing expects closed member rings; fragmented member-way stitching needs work.
+- Multipolygon member ways can now be stitched by matching exact endpoint coordinates; ambiguous branching, self-intersections and broader geometry validity checks still need work.
 - Selection raycasting traverses visible world objects on each click; spatial acceleration is not implemented.
-- Cancellation under cache-hit conditions, recovery, memory disposal and large-area behavior need integration tests.
+- Cancellation/cache safeguards and fragmented multipolygon stitching have unit-test coverage committed, but the tests have not yet been executed; recovery, memory disposal and large-area behavior still need integration tests.
 - GLB export exists, but import into a real Unreal Engine project has not been verified.
 - Mobile editing drawers, transform gizmos and road spline editing are not complete.
 - No backend is required yet; defer it until browser-side limits justify it.
