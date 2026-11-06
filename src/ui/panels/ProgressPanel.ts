@@ -109,8 +109,8 @@ export class ProgressPanel {
     this.setBar(this.generated, s.generatedPct);
     const c = s.counts;
     this.counts.textContent =
-      `Ready ${c.ready} · Importing ${c.importing + c.imported} · Generating ${c.generating} · ` +
-      `Waiting ${c.pending} · Failed ${c.error}`;
+      `Ready ${c.ready} · Generating ${c.generating} · Queued for 3D ${c.imported} · ` +
+      `Importing ${c.importing} · Waiting ${c.pending} · Failed ${c.error}`;
     for (const [id, el] of this.cellEls) {
       const st = s.statuses.get(id) ?? 'pending';
       el.className = `cell st-${st}`;
