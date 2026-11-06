@@ -33,7 +33,8 @@ const TEMPLATE = `
 <div class="editor">
   <header class="topbar">
     <div class="brand"><img src="${import.meta.env.BASE_URL}favicon.svg" alt="" />DHAKA WORLD BUILDER</div>
-    <button id="btn-map-mode" class="mobile-map-button" title="Return to 2D map selection">2D Map</button>
+    <button id="btn-map-mode" class="mobile-map-button" title="Open 2D map selection">Map</button>
+    <button id="btn-layers-mode" class="mobile-map-button" title="Show or hide layers and properties">Layers</button>
     <button id="btn-open" title="Open a saved project (.dwb.json)">Open</button>
     <input id="file-open" type="file" accept=".json,application/json" hidden />
     <button id="btn-generate" disabled title="Import map data and build the 3D city automatically">Generate City</button>
@@ -258,8 +259,12 @@ export class App {
       } else void this.runGenerate();
     };
     el(root, '#btn-generate').addEventListener('click', generateOrCancel);
-    el(root, '#mobile-generate').addEventListener('click', generateOrCancel);
-    el(root, '#btn-map-mode').addEventListener('click', () => this.showMapMode());
+    el(root, '#mobile-generate').addEventListener('click', () => {
+      root.querySelector('.editor')?.classList.remove('show-map-panel');
+      generateOrCancel();
+    });
+    el(root, '#btn-map-mode').addEventListener('click', () => this.toggleMapPanel());
+    el(root, '#btn-layers-mode').addEventListener('click', () => this.toggleLayersPanel());
     el(root, '#btn-walk').addEventListener('click', () => this.scene.setWalkMode(!this.scene.isWalkMode));
     el(root, '#btn-export').addEventListener('click', () => void this.runExport(false));
     el(root, '#btn-export-zip').addEventListener('click', () => void this.runExport(true));
@@ -269,15 +274,25 @@ export class App {
 
   private showCityMode(): void {
     this.root.querySelector('.editor')?.classList.add('is-city-mode');
+    this.root.querySelector('.editor')?.classList.remove('show-map-panel', 'show-layers-panel');
     this.mapView.resize();
     if (screen.orientation && 'lock' in screen.orientation) void screen.orientation.lock('landscape').catch(() => {});
   }
 
-  private showMapMode(): void {
-    this.scene.setWalkMode(false);
-    this.root.querySelector('.editor')?.classList.remove('is-city-mode');
+  private toggleMapPanel(): void {
+    const editor = this.root.querySelector('.editor');
+    if (!editor) return;
+    editor.classList.remove('show-layers-panel');
+    editor.classList.toggle('show-map-panel');
     this.mapView.resize();
     requestAnimationFrame(() => this.mapView.resize());
+  }
+
+  private toggleLayersPanel(): void {
+    const editor = this.root.querySelector('.editor');
+    if (!editor) return;
+    editor.classList.remove('show-map-panel');
+    editor.classList.toggle('show-layers-panel');
   }
 
   private bindStore(): void {
