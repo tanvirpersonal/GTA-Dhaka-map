@@ -61,3 +61,12 @@ export class EditHistory {
     this.present = initial;
   }
 }
+
+/** Feature ids whose override differs between two snapshots (added, removed or changed). */
+export function changedIds(a: Overrides, b: Overrides): string[] {
+  const out: string[] = [];
+  for (const id of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (JSON.stringify(a[id]) !== JSON.stringify(b[id])) out.push(id);
+  }
+  return out;
+}
