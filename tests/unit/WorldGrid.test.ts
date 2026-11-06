@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildGrid, cellAt, orderCenterOut } from '../../src/data/WorldGrid';
+import { buildGrid, cellAt, estimateBuild, orderCenterOut } from '../../src/data/WorldGrid';
 
 const area = { west: 90.3, south: 23.65, east: 90.52, north: 23.92 };
 
@@ -44,5 +44,18 @@ describe('cellAt', () => {
     const c = cellAt(cells, 90.301, 23.651);
     expect(c?.id).toBe('r0c0');
     expect(cellAt(cells, 91, 23.7)).toBeNull();
+  });
+});
+
+describe('estimateBuild', () => {
+  it('uses one request per cell for small areas', () => {
+    const small = { west: 90.4, south: 23.76, east: 90.405, north: 23.765 };
+    expect(estimateBuild(small).tiles).toBe(100);
+  });
+
+  it('scales up for all of Dhaka', () => {
+    const e = estimateBuild(area);
+    expect(e.tiles).toBeGreaterThan(2000);
+    expect(e.minutes).toBeGreaterThan(60);
   });
 });
