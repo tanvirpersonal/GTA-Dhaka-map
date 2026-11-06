@@ -78,6 +78,15 @@ src-tauri/target/release/bundle/
 
 Linux packages are generated on Linux; Windows installers must be built on Windows. A Linux build does not produce a tested Windows installer.
 
+## CI-built installers
+
+The `Build Desktop Installers` workflow runs on pushes to `c2-stabilization` and can also be started manually from the repository's Actions tab. When both jobs succeed, open that workflow run and download:
+
+- `dhaka-world-builder-linux-deb` — a Debian package for Linux Mint / Ubuntu.
+- `dhaka-world-builder-windows-nsis` — a Windows NSIS installer executable.
+
+These are CI build outputs, not signed releases. Windows SmartScreen may show an unknown-publisher warning until the application is code-signed. Linux packages depend on compatible WebKitGTK system libraries.
+
 ## Browser build remains unchanged
 
 ```bash
