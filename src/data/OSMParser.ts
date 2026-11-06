@@ -24,6 +24,59 @@ const toRing = (g: Geom): LonLat[] => g.map((p) => [p.lon, p.lat]);
 const isClosed = (r: LonLat[]): boolean =>
   r.length >= 4 && r[0][0] === r[r.length - 1][0] && r[0][1] === r[r.length - 1][1];
 
+const samePoint = (a: LonLat, b: LonLat): boolean => a[0] === b[0] && a[1] === b[1];
+
+/**
+ * Join Overpass relation member ways into closed rings. Member ways can be
+ * returned in arbitrary order and direction, so joins are attempted at both
+ * ends. Coordinates are the exact WGS84 values returned by Overpass.
+ */
+function stitchRings(geometries: Geom[]): { rings: LonLat[][]; incomplete: number } {
+  const pending = geometries
+    .filter((geometry) => geometry.length >= 2)
+    .map(toRing);
+  const rings: LonLat[][] = [];
+  let incomplete = 0;
+
+  while (pending.length > 0) {
+    const chain = pending.shift()!;
+    let changed = true;
+
+    while (!isClosed(chain) && changed) {
+      changed = false;
+      const start = chain[0];
+      const end = chain[chain.length - 1];
+
+      for (let i = 0; i < pending.length; i++) {
+        const candidate = pending[i];
+        const first = candidate[0];
+        const last = candidate[candidate.length - 1];
+
+        if (samePoint(end, first)) {
+          chain.push(...candidate.slice(1));
+        } else if (samePoint(end, last)) {
+          chain.push(...candidate.slice(0, -1).reverse());
+        } else if (samePoint(start, last)) {
+          chain.unshift(...candidate.slice(0, -1));
+        } else if (samePoint(start, first)) {
+          chain.unshift(...candidate.slice(1).reverse());
+        } else {
+          continue;
+        }
+
+        pending.splice(i, 1);
+        changed = true;
+        break;
+      }
+    }
+
+    if (isClosed(chain)) rings.push(chain);
+    else incomplete++;
+  }
+
+  return { rings, incomplete };
+}
+
 function pointInRing(pt: LonLat, ring: LonLat[]): boolean {
   let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -138,13 +191,16 @@ export function parseOverpass(res: OverpassResponse): ImportResult {
     const tags = el.tags ?? {};
     const kind = areaKind(tags);
     if (!kind || !el.members) return;
-    const rings = (role: string) =>
-      el
-        .members!.filter((m) => m.role === role && m.geometry && m.geometry.length > 3)
-        .map((m) => toRing(m.geometry!))
-        .filter(isClosed);
-    const outers = rings('outer');
-    const inners = rings('inner');
+    const collectRings = (role: string) => {
+      const members = el.members!.filter(
+        (member) => member.type === 'way' && member.role === role && member.geometry && member.geometry.length >= 2,
+      );
+      const result = stitchRings(members.map((member) => member.geometry!));
+      skippedOpen += result.incomplete;
+      return result.rings;
+    };
+    const outers = collectRings('outer');
+    const inners = collectRings('inner');
     if (outers.length === 0) {
       skippedOpen++;
       return;

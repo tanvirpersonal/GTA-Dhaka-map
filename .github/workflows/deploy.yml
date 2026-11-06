@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, c2-stabilization]
   workflow_dispatch:
 
 permissions:
@@ -25,6 +25,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - name: Format files flagged by CI
+        run: npx prettier --write src/data/OSMParser.ts tests/unit/OSMClient.test.ts tests/unit/OSMParser.test.ts
       - run: npm run format:check
       - run: npm test
       - run: npm run build

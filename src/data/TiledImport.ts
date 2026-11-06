@@ -17,18 +17,22 @@ export interface TiledOptions extends Pick<FetchOptions, 'signal' | 'onRetry'> {
   onProgress?: (p: TiledProgress) => void;
 }
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+}
+
 const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
     if (signal?.aborted) return reject(new DOMException('Aborted', 'AbortError'));
-    const t = setTimeout(resolve, ms);
-    signal?.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(t);
-        reject(new DOMException('Aborted', 'AbortError'));
-      },
-      { once: true },
-    );
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
   });
 
 /**
@@ -43,14 +47,20 @@ export async function importTiled(bounds: Bounds, opts: TiledOptions = {}): Prom
   let needPause = false;
 
   for (let i = 0; i < tiles.length; i++) {
+    throwIfAborted(opts.signal);
     const tile = tiles[i];
     let result = await getCached(tile);
+    // IndexedDB reads cannot be cancelled, so check immediately after they settle as well.
+    throwIfAborted(opts.signal);
     const fromCache = !!result;
     if (!result) {
       if (needPause) await sleep(PAUSE_BETWEEN_TILES_MS, opts.signal);
+      throwIfAborted(opts.signal);
       const raw = await fetchOSM(tile, { signal: opts.signal, onRetry: opts.onRetry });
+      throwIfAborted(opts.signal);
       result = parseOverpass(raw);
       await putCached(tile, result);
+      throwIfAborted(opts.signal);
       needPause = true;
     }
     for (const f of result.features) {
@@ -66,6 +76,7 @@ export async function importTiled(bounds: Bounds, opts: TiledOptions = {}): Prom
     opts.onProgress?.({ done: i + 1, total: tiles.length, fromCache });
   }
 
+  throwIfAborted(opts.signal);
   const counts: FeatureCounts = { building: 0, road: 0, path: 0, waterway: 0, water: 0, green: 0 };
   for (const f of features) counts[f.kind]++;
   if (features.length === 0) warnings.set('empty', { code: 'empty', message: 'No features found in this area.' });

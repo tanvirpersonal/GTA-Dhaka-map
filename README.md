@@ -1,8 +1,8 @@
 # GTA Dhaka Map — Project Blueprint
 
 > **Project:** Dhaka World Builder  
-> **Purpose:** Build a browser-based tool that imports real Dhaka geographic data, converts it into an editable 3D city, and exports game-ready assets for the GTA Dhaka game.  
-> **Current stage:** Planning / architecture  
+> **Purpose:** Build a browser and desktop tool that imports real Dhaka geographic data, converts it into an editable 3D city, and exports game-ready assets for the GTA Dhaka game.  
+> **Current stage:** Active prototype — reliability, geometry quality, mobile UX and game-export validation in progress  
 > **Initial scope:** Dhaka, Bangladesh only
 
 ---
@@ -15,7 +15,7 @@ This is **not** the GTA game itself. It is the map-building pipeline and editor 
 
 ### Core workflow
 
-1. Open Dhaka World Builder in a browser.
+1. Open Dhaka World Builder in a browser or the Tauri desktop application.
 2. View a 2D map of Dhaka.
 3. Select a bounded area (start with a small test area).
 4. Fetch geographic data for that area.
@@ -93,6 +93,17 @@ GitHub Pages hosts the static frontend only. It does not run Python, Node.js, da
 - **Docker:** reproducible backend deployment.
 
 The backend can be deployed separately (for example, to a suitable cloud host). The frontend on GitHub Pages calls it through HTTPS. Do not commit API secrets to the frontend repository.
+
+### Desktop application — Tauri 2
+
+The same Vite + TypeScript + Three.js editor can also run as a native desktop application through Tauri 2. The desktop shell shares the browser code, while the GitHub Pages deployment remains available.
+
+- Development: `npm run desktop:dev`
+- Build platform-specific installers: `npm run desktop:build`
+- Desktop setup, operating-system prerequisites and limitations: [docs/DESKTOP_APP.md](docs/DESKTOP_APP.md)
+
+The desktop wrapper is a distribution and native-integration step, not an automatic 3D performance upgrade. Large-city rendering still needs measured optimization in the Three.js engine.
+
 
 ### Why start without a mandatory backend?
 
@@ -557,6 +568,7 @@ The Unreal import guide must document scale, axis orientation, collision setup, 
 - [ ] Test Tejgaon–Farmgate corridor.
 - [ ] Add Dhanmondi coverage.
 - [ ] Improve intersections and sidewalks.
+- [ ] Validate fragmented OSM multipolygon assembly and invalid-ring handling.
 - [ ] Add tile streaming and LOD.
   - [x] Tiled import: selections up to 4 km² are fetched as ≤0.25 km² tiles, cached per tile and de-duplicated.
   - [ ] Stream tiles into the 3D scene and add LOD (generation is still one merged city per selection).
@@ -615,6 +627,80 @@ V1 is ready for a first release when:
 Implement **Milestone 0 and Milestone 1** first: initialize the frontend, publish the editor shell to GitHub Pages, show a Dhaka map, and allow the user to select a small rectangular area. Do not start full-city generation until the selection and data-import pipeline has been tested.
 
 ---
+
+
+## 18. Current implementation status (6 November 2026)
+
+The repository has moved beyond the original planning stage. The current code contains a browser editor and a first-generation map-to-3D pipeline.
+
+### Implemented in source code
+
+- MapLibre Dhaka map, rectangle selection, bounds validation and selection preview.
+- OSM/Overpass request client with endpoint fallback, retry/backoff and abort signal support.
+- OSM feature parsing for buildings, roads, paths, waterways, water and green areas, including an initial endpoint-stitching pass for fragmented multipolygon rings.
+- Tiled import with a pause between uncached tile requests.
+- IndexedDB tile cache with a seven-day TTL.
+- A 10×10 centre-out grid pipeline that overlaps cell import with geometry generation.
+- Three.js cell scene, layer visibility, feature picking and selection highlighting.
+- Building-height and road-width overrides, undo/redo, project JSON save/open.
+- GLB and per-layer ZIP export paths.
+- Distance-based visibility LOD for building/path layers, currently using a fixed 2,500 m detail radius.
+
+### Important limitations
+
+- Current LOD hides distant detail layers; it does not substitute low-poly representations.
+- Progressive cell generation exists, but camera-driven world streaming/unloading is not complete.
+- Cell-edge features are de-duplicated by ID, not geometrically clipped. Road continuity needs tests.
+- Multipolygon member ways can now be stitched by matching exact endpoint coordinates; ambiguous branching, self-intersections and broader geometry validity checks still need work.
+- Selection raycasting traverses visible world objects on each click; spatial acceleration is not implemented.
+- Cancellation/cache safeguards and fragmented multipolygon stitching have unit-test coverage committed, but the tests have not yet been executed; recovery, memory disposal and large-area behavior still need integration tests.
+- GLB export exists, but import into a real Unreal Engine project has not been verified.
+- Mobile editing drawers, transform gizmos and road spline editing are not complete.
+- No backend is required yet; defer it until browser-side limits justify it.
+
+### Development status
+
+| Area | Status |
+|---|---|
+| Map selection and OSM import | Implemented; integration testing needed |
+| Cell generation and IndexedDB cache | Implemented; recovery testing needed |
+| Basic 3D editor and property overrides | Implemented |
+| Project save/open | Implemented; compatibility testing needed |
+| GLB/layer export | Implemented; Unreal validation pending |
+| Distance visibility LOD | Integrated; not true multi-level LOD |
+| Camera-driven cell streaming | Planned |
+| Geometry clipping and robust multipolygons | Planned |
+| Road spline/junction editor | Planned |
+| Transform gizmos and custom asset placement | Planned |
+| Responsive mobile editing drawers | Planned |
+| Terrain/elevation | Planned |
+| Optional cloud backend | Deferred |
+
+### Immediate implementation order
+
+1. Stabilize cancellation, cache behavior and import recovery.
+2. Improve OSM geometry handling and cell-boundary continuity.
+3. Add integration tests for generation, selection, save/open and export.
+4. Improve picking and scene lifecycle/performance.
+5. Add mobile panel drawers and transform tools.
+6. Add road editing and custom GLB asset placement.
+7. Implement real cell streaming and multi-level LOD.
+8. Validate chunked exports in Unreal Engine.
+9. Reassess whether a backend is needed.
+
+Do not mark a milestone complete until its acceptance tests pass. See [the technical audit](docs/TECHNICAL_AUDIT.md) for detailed findings and acceptance criteria.
+
+## 19. Latest stabilization update (6 November 2026)
+
+The stabilization branch now includes additional import-cancellation safeguards:
+
+- Tiled import checks abort state around asynchronous cache operations.
+- Overpass retry delays clean up their timer and abort listener.
+- Overpass requests check cancellation before each attempt and after successful response parsing.
+- Invalid retry settings (zero/negative/non-integer attempts or an empty endpoint list) fail early.
+- Unit tests cover tiled-cache cancellation and Overpass retry cancellation/configuration.
+
+The tests are committed but **have not yet been run** in this environment. Build and full-suite validation remain outstanding. Continue work on `c2-stabilization`; the original `c2` branch remains the untouched baseline. See [the technical audit](docs/TECHNICAL_AUDIT.md) for the remaining acceptance tests.
 
 ## References
 
