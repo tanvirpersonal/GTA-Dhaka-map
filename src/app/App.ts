@@ -11,6 +11,7 @@ import { generateCity } from '../generator/CityGenerator';
 import { CellStore } from './CellStore';
 import { GridProgress } from './GridProgress';
 import { runGridPipeline, type PipelineConfig, type PipelineSummary } from './GridPipeline';
+import { CellLod, DETAIL_LAYERS } from '../renderer/CellLod';
 import { ProgressPanel } from '../ui/panels/ProgressPanel';
 import { validateForExport } from '../export/ExportValidator';
 import { exportLayersZip } from '../export/LayerExporter';
@@ -131,6 +132,7 @@ export class App {
   private readonly props: PropertiesPanel;
   private readonly layersPanel: LayersPanel;
   private readonly progressPanel: ProgressPanel;
+  private readonly lod: CellLod;
 
   constructor(private readonly root: HTMLElement) {
     root.innerHTML = TEMPLATE;
@@ -155,6 +157,8 @@ export class App {
     this.layersPanel = new LayersPanel(el(root, '#layers'), (id, next) => this.setLayer(id, next));
     this.layersPanel.render(this.layers);
     this.progressPanel = new ProgressPanel(el(root, '#progress'));
+    this.lod = new CellLod(this.scene, () => this.layers);
+    this.lod.start();
 
     this.bindUi();
     this.bindStore();
@@ -383,7 +387,7 @@ export class App {
       const m = o as Mesh;
       const layer = m.isMesh ? this.layers[m.name as LayerId] : undefined;
       if (!layer) return;
-      m.visible = layer.visible;
+      m.visible = layer.visible && !(DETAIL_LAYERS.has(m.name) && m.userData.lodHidden);
       (m.material as MeshStandardMaterial).color.setHex(layer.color);
     });
   }
@@ -509,6 +513,7 @@ export class App {
     const city = this.scene.currentCity;
     const w = this.world;
     if (!city || !w) return;
+    this.lod.suspend(); // export everything, not just what is near the camera
     try {
       const report = validateForExport(city);
       if (!report.ok) {
@@ -534,6 +539,8 @@ export class App {
       );
     } catch (err) {
       store.setStatus('error', `Export failed: ${(err as Error).message}`);
+    } finally {
+      this.lod.resume();
     }
   }
 
