@@ -4,6 +4,7 @@ import { getCached, putCached } from './ImportCache';
 import { fetchOSM, type FetchOptions } from './OSMClient';
 import { parseOverpass } from './OSMParser';
 import { splitBounds } from './TileGrid';
+import { TEJGAON_CENTER } from '../map/DhakaBounds';
 
 const PAUSE_BETWEEN_TILES_MS = 1000;
 
@@ -15,6 +16,8 @@ export interface TiledProgress {
 
 export interface TiledOptions extends Pick<FetchOptions, 'signal' | 'onRetry'> {
   onProgress?: (p: TiledProgress) => void;
+  /** Download nearby tiles first so a useful core city area is available early. */
+  priorityCenter?: [number, number];
 }
 
 const sleep = (ms: number, signal?: AbortSignal) =>
@@ -32,7 +35,14 @@ const sleep = (ms: number, signal?: AbortSignal) =>
  * network requests) and merge them. Features crossing tile edges are de-duplicated by id.
  */
 export async function importTiled(bounds: Bounds, opts: TiledOptions = {}): Promise<ImportResult> {
-  const tiles = splitBounds(bounds);
+  const center = opts.priorityCenter ?? TEJGAON_CENTER;
+  const tiles = splitBounds(bounds).sort((a, b) => {
+    const ax = (a.west + a.east) / 2 - center[0];
+    const ay = (a.south + a.north) / 2 - center[1];
+    const bx = (b.west + b.east) / 2 - center[0];
+    const by = (b.south + b.north) / 2 - center[1];
+    return (ax * ax + ay * ay) - (bx * bx + by * by);
+  });
   const seen = new Set<string>();
   const features: MapFeature[] = [];
   const warnings = new Map<string, ImportWarning>();
