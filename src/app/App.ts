@@ -33,6 +33,7 @@ const TEMPLATE = `
 <div class="editor">
   <header class="topbar">
     <div class="brand"><img src="${import.meta.env.BASE_URL}favicon.svg" alt="" />DHAKA WORLD BUILDER</div>
+    <button id="btn-map-mode" class="mobile-map-button" title="Return to 2D map selection">2D Map</button>
     <button id="btn-open" title="Open a saved project (.dwb.json)">Open</button>
     <input id="file-open" type="file" accept=".json,application/json" hidden />
     <button id="btn-generate" disabled title="Import map data and build the 3D city automatically">Generate City</button>
@@ -49,7 +50,9 @@ const TEMPLATE = `
   <aside class="panel left">
     <section>
       <h2>Map</h2>
+      <p class="mobile-step-label">STEP 1 · SELECT YOUR AREA</p>
       <div class="map-wrap"><div class="map" id="map"></div></div>
+      <div class="mobile-map-actions"><button id="mobile-select" class="primary">Draw area</button><button id="mobile-full-dhaka">Full Dhaka</button></div>
     </section>
     <section>
       <h2>Tools</h2>
@@ -59,7 +62,12 @@ const TEMPLATE = `
         <button id="btn-clear" disabled>Clear</button>
         <button id="btn-fit" disabled>Zoom to selection</button>
       </div>
-      <p class="hint" style="margin-top:8px">Click "Select Area", then drag a rectangle on the map. Esc cancels.</p>
+      <p class="hint desktop-hint" style="margin-top:8px">Click "Select Area", then drag a rectangle on the map. Esc cancels.</p>
+    </section>
+    <section class="mobile-generate-section">
+      <p class="mobile-step-label">STEP 2 · BUILD YOUR CITY</p>
+      <button id="mobile-generate" class="primary mobile-generate-button" disabled>Generate 3D City</button>
+      <p class="hint">Select an area on the map, then generate its 3D environment.</p>
     </section>
     <section>
       <h2>Import</h2>
@@ -193,12 +201,14 @@ export class App {
       }
     };
 
-    el(root, '#btn-full-dhaka').addEventListener('click', () => {
+    const chooseFullDhaka = () => {
       selector.setActive(false);
       store.setSelection({ ...DHAKA_EXTENT });
       this.mapView.fitTo(DHAKA_EXTENT.west, DHAKA_EXTENT.south, DHAKA_EXTENT.east, DHAKA_EXTENT.north);
       store.setStatus('warn', 'Full Dhaka coverage selected. This is a large tiled OSM import; cached tiles are reused after cancellation.');
-    });
+    };
+    el(root, '#btn-full-dhaka').addEventListener('click', chooseFullDhaka);
+    el(root, '#mobile-full-dhaka').addEventListener('click', chooseFullDhaka);
 
     el(root, '#btn-clear').addEventListener('click', () => selector.clear());
     el(root, '#btn-fit').addEventListener('click', () => {
@@ -240,18 +250,34 @@ export class App {
     el(root, '#btn-undo').addEventListener('click', () => this.undo());
     el(root, '#btn-redo').addEventListener('click', () => this.redo());
 
-    el(root, '#btn-generate').addEventListener('click', () => {
+    const generateOrCancel = () => {
       if (this.abort || el<HTMLButtonElement>(root, '#btn-generate').textContent === 'Cancel') {
         this.cancelRequested = true;
         this.abort?.abort();
         store.setStatus('warn', 'Cancelling city generation…');
       } else void this.runGenerate();
-    });
+    };
+    el(root, '#btn-generate').addEventListener('click', generateOrCancel);
+    el(root, '#mobile-generate').addEventListener('click', generateOrCancel);
+    el(root, '#btn-map-mode').addEventListener('click', () => this.showMapMode());
     el(root, '#btn-walk').addEventListener('click', () => this.scene.setWalkMode(!this.scene.isWalkMode));
     el(root, '#btn-export').addEventListener('click', () => void this.runExport(false));
     el(root, '#btn-export-zip').addEventListener('click', () => void this.runExport(true));
 
     window.addEventListener('resize', () => this.mapView.resize());
+  }
+
+  private showCityMode(): void {
+    this.root.querySelector('.editor')?.classList.add('is-city-mode');
+    this.mapView.resize();
+    if (screen.orientation && 'lock' in screen.orientation) void screen.orientation.lock('landscape').catch(() => {});
+  }
+
+  private showMapMode(): void {
+    this.scene.setWalkMode(false);
+    this.root.querySelector('.editor')?.classList.remove('is-city-mode');
+    this.mapView.resize();
+    requestAnimationFrame(() => this.mapView.resize());
   }
 
   private bindStore(): void {
@@ -287,6 +313,7 @@ export class App {
     root.userData.modelVersion = 1;
     root.userData.coordinateSystem = 'shared-selection-origin';
     this.scene.setCity(root, false);
+    this.showCityMode();
     const size = boundsSizeMeters(bounds);
     this.scene.frameCity(size.width, size.height);
     this.setWorking(bounds, { features: [], counts: { building: 0, road: 0, path: 0, waterway: 0, water: 0, green: 0 }, warnings: [] }, {}, defaultLayers());
@@ -333,6 +360,7 @@ export class App {
         byId,
       };
       el(this.root, '#placeholder').style.display = 'none';
+      this.showCityMode();
     };
 
     try {
@@ -585,6 +613,7 @@ export class App {
     const r = this.importResult;
     const generateButton = el<HTMLButtonElement>(this.root, '#btn-generate');
     generateButton.disabled = !store.selection || (!!r && r.features.length === 0);
+    el<HTMLButtonElement>(this.root, '#mobile-generate').disabled = generateButton.disabled;
     if (!r) {
       info.innerHTML = '<dt>Status</dt><dd>Nothing imported</dd>';
       notice.innerHTML = '';
