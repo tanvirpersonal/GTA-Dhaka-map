@@ -19,16 +19,25 @@ export interface GeneratedCity {
   stats: CityStats;
 }
 
+export interface GenerateOptions {
+  /** Projection shared by all cells of a grid so they align. Defaults to one centred on `bounds`. */
+  projection?: LocalProjection;
+  /** Name of the returned group, e.g. a grid cell id. */
+  name?: string;
+}
+
 /** Turn imported features into a 3D city group in local metres (Y up, origin at selection centre). */
 export function generateCity(
   result: ImportResult,
   bounds: Bounds,
   overrides: Overrides = {},
   layers: Layers = defaultLayers(),
+  opts: GenerateOptions = {},
 ): GeneratedCity {
-  const proj = LocalProjection.fromBounds(bounds);
+  // A shared projection lets many cells line up in one world; default is local to `bounds`.
+  const proj = opts.projection ?? LocalProjection.fromBounds(bounds);
   const group = new THREE.Group();
-  group.name = 'dhaka-city';
+  group.name = opts.name ?? 'dhaka-city';
 
   const pick = <T extends { kind: string }>(kind: string) =>
     result.features.filter((f) => f.kind === kind) as unknown as T[];
