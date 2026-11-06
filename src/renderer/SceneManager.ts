@@ -160,17 +160,44 @@ export class SceneManager {
     this.scene.add(sun);
   }
 
-  private addGround(): void {
-    // 1 unit = 1 metre. 2 km grid with 100 m cells as a scale reference.
-    const grid = new THREE.GridHelper(2000, 20, 0x4ea1ff, 0x2a303b);
-    this.scene.add(grid);
+  private grid: THREE.GridHelper | null = null;
+  private ground: THREE.Mesh | null = null;
 
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(2000, 2000),
+  private addGround(): void {
+    this.ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
       new THREE.MeshStandardMaterial({ color: 0x14171d, roughness: 1 }),
     );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.05;
-    this.scene.add(ground);
+    this.ground.rotation.x = -Math.PI / 2;
+    this.ground.position.y = -0.05;
+    this.scene.add(this.ground);
+    this.setGroundSize(2000);
+  }
+
+  /**
+   * Resize the ground plane, reference grid and camera range for a world `sizeM` metres across
+   * (1 unit = 1 metre). Centre it with `centerX`/`centerZ`.
+   */
+  setGroundSize(sizeM: number, centerX = 0, centerZ = 0): void {
+    const size = Math.max(500, sizeM);
+    if (this.grid) {
+      this.scene.remove(this.grid);
+      this.grid.geometry.dispose();
+      (this.grid.material as THREE.Material).dispose();
+    }
+    // About 100 m cells for small worlds, capped at 100 divisions for huge ones.
+    const divisions = Math.min(100, Math.max(10, Math.round(size / 100)));
+    this.grid = new THREE.GridHelper(size, divisions, 0x4ea1ff, 0x2a303b);
+    this.grid.position.set(centerX, 0, centerZ);
+    this.scene.add(this.grid);
+
+    if (this.ground) {
+      this.ground.scale.set(size, size, 1);
+      this.ground.position.x = centerX;
+      this.ground.position.z = centerZ;
+    }
+    this.camera.far = Math.max(20000, size * 3);
+    this.camera.updateProjectionMatrix();
+    this.controls.maxDistance = Math.max(5000, size * 2);
   }
 }
