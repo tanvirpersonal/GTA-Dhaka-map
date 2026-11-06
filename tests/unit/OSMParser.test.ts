@@ -66,6 +66,98 @@ describe('parseOverpass', () => {
     expect(b.kind === 'building' && b.holes.length).toBe(1);
   });
 
+
+  it('stitches fragmented outer member ways regardless of order and direction', () => {
+    const a = g(90.4, 23.76);
+    const b = g(90.401, 23.76);
+    const c = g(90.401, 23.761);
+    const d = g(90.4, 23.761);
+    const r = parseOverpass({
+      elements: [{
+        type: 'relation',
+        id: 10,
+        tags: { building: 'yes', type: 'multipolygon' },
+        members: [
+          { type: 'way', ref: 3, role: 'outer', geometry: [c, b] },
+          { type: 'way', ref: 1, role: 'outer', geometry: [a, b] },
+          { type: 'way', ref: 4, role: 'outer', geometry: [d, a] },
+          { type: 'way', ref: 2, role: 'outer', geometry: [c, d] },
+        ],
+      }],
+    });
+
+    expect(r.counts.building).toBe(1);
+    const feature = r.features[0];
+    expect(feature.kind).toBe('building');
+    if (feature.kind === 'building') {
+      expect(feature.outer[0]).toEqual(feature.outer[feature.outer.length - 1]);
+      expect(feature.outer).toHaveLength(5);
+    }
+    expect(r.warnings.some((warning) => warning.code === 'open-ring')).toBe(false);
+  });
+
+  it('stitches fragmented inner member ways into a courtyard hole', () => {
+    const outer = sq(90.4, 23.76, 0.002);
+    const a = g(90.4005, 23.7605);
+    const b = g(90.401, 23.7605);
+    const c = g(90.401, 23.761);
+    const d = g(90.4005, 23.761);
+    const r = parseOverpass({
+      elements: [{
+        type: 'relation',
+        id: 11,
+        tags: { building: 'yes', type: 'multipolygon' },
+        members: [
+          { type: 'way', ref: 1, role: 'outer', geometry: outer },
+          { type: 'way', ref: 2, role: 'inner', geometry: [a, b] },
+          { type: 'way', ref: 3, role: 'inner', geometry: [c, b] },
+          { type: 'way', ref: 4, role: 'inner', geometry: [d, c] },
+          { type: 'way', ref: 5, role: 'inner', geometry: [a, d] },
+        ],
+      }],
+    });
+
+    const feature = r.features[0];
+    expect(r.counts.building).toBe(1);
+    expect(feature.kind === 'building' ? feature.holes : []).toHaveLength(1);
+  });
+
+  it('keeps multiple outer rings as separate features and associates holes', () => {
+    const r = parseOverpass({
+      elements: [{
+        type: 'relation',
+        id: 12,
+        tags: { natural: 'water', type: 'multipolygon' },
+        members: [
+          { type: 'way', ref: 1, role: 'outer', geometry: sq(90.4, 23.76, 0.001) },
+          { type: 'way', ref: 2, role: 'outer', geometry: sq(90.402, 23.76, 0.001) },
+          { type: 'way', ref: 3, role: 'inner', geometry: sq(90.4002, 23.7602, 0.0002) },
+        ],
+      }],
+    });
+
+    expect(r.counts.water).toBe(2);
+    expect(r.features.filter((feature) => feature.kind === 'water')).toHaveLength(2);
+    expect(r.features.some((feature) => feature.kind === 'water' && feature.holes.length === 1)).toBe(true);
+  });
+
+  it('reports incomplete fragmented relation rings instead of emitting invalid polygons', () => {
+    const r = parseOverpass({
+      elements: [{
+        type: 'relation',
+        id: 13,
+        tags: { building: 'yes', type: 'multipolygon' },
+        members: [
+          { type: 'way', ref: 1, role: 'outer', geometry: [g(90.4, 23.76), g(90.401, 23.76)] },
+          { type: 'way', ref: 2, role: 'outer', geometry: [g(90.401, 23.76), g(90.401, 23.761)] },
+        ],
+      }],
+    });
+
+    expect(r.counts.building).toBe(0);
+    expect(r.warnings.some((warning) => warning.code === 'open-ring')).toBe(true);
+  });
+
   it('warns on empty results and passes through the Overpass remark', () => {
     const r = parseOverpass({ elements: [], remark: 'runtime error: timeout' });
     expect(r.warnings.map((w) => w.code)).toEqual(expect.arrayContaining(['remark', 'empty']));
