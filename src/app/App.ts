@@ -271,48 +271,6 @@ export class App {
     store.on('status', () => this.renderStatus());
   }
 
-  private async runImport(): Promise<boolean> {
-    const bounds = store.selection;
-    if (!bounds) return false;
-    const areaKm2 = boundsAreaKm2(bounds);
-    if (areaKm2 > 100 && !window.confirm(
-      `You selected ${areaKm2.toFixed(0)} km². Full Dhaka import may require thousands of OSM tile requests and can take a long time. Previously cached tiles will be reused if cancelled and restarted. Continue?`,
-    )) return false;
-    this.importResult = null;
-    this.setImportProgress(0, 'Preparing map import…', true);
-    this.renderImport();
-    try {
-      this.abort = new AbortController();
-      store.setStatus('info', 'Importing from OpenStreetMap…');
-      const result = await importTiled(bounds, {
-        signal: this.abort.signal,
-        onProgress: ({ done, total, fromCache }) => {
-          const percent = Math.round((done / total) * 100);
-          this.setImportProgress(percent, `Importing map tiles ${done}/${total}${fromCache ? ' · cached' : ''}`, true);
-          store.setStatus('info', `Map import ${percent}% · tile ${done}/${total}${fromCache ? ' (cached)' : ''}`);
-        },
-        onRetry: ({ attempt, reason, delayMs }) =>
-          store.setStatus('warn', `Overpass: ${reason}. Retry ${attempt} in ${Math.round(delayMs / 1000)}s…`),
-      });
-      this.importResult = result;
-      this.cityBlocks = loadBlockProgress(assignFeaturesToBlocks(createCityBlocks(bounds), result.features));
-      this.mapView.setCityBlocks(this.cityBlocks);
-      this.renderBlocks();
-      this.setImportProgress(20, 'Import complete · preparing 3D generation', true);
-      const n = result.features.length;
-      store.setStatus(result.warnings.length ? 'warn' : 'info', `Imported ${n} features. Starting 3D generation…`);
-      return true;
-    } catch (err) {
-      const e = err as Error;
-      if (e.name === 'AbortError') { this.setImportProgress(0, 'Generation cancelled', false); store.setStatus('info', 'Generation cancelled.'); }
-      else { this.setImportProgress(0, 'Import failed', false); store.setStatus('error', err instanceof OSMImportError ? e.message : `Import failed: ${e.message}`); }
-      return false;
-    } finally {
-      this.abort = null;
-      this.renderImport();
-    }
-  }
-
   private async runGenerate(): Promise<void> {
     const bounds = store.selection;
     if (!bounds) return;
