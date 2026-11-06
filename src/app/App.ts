@@ -114,6 +114,7 @@ export class App {
   private importResult: ImportResult | null = null;
   private cityBlocks: CityBlock[] = [];
   private abort: AbortController | null = null;
+  private cancelRequested = false;
   /** The data behind the city currently shown (may differ from the live map selection). */
   private working: { bounds: Bounds; result: ImportResult; byId: Map<string, MapFeature> } | null = null;
   private readonly history = new EditHistory();
@@ -240,7 +241,13 @@ export class App {
     el(root, '#btn-undo').addEventListener('click', () => this.undo());
     el(root, '#btn-redo').addEventListener('click', () => this.redo());
 
-    el(root, '#btn-generate').addEventListener('click', () => void this.runGenerate());
+    el(root, '#btn-generate').addEventListener('click', () => {
+      if (this.abort || el<HTMLButtonElement>(root, '#btn-generate').textContent === 'Cancel') {
+        this.cancelRequested = true;
+        this.abort?.abort();
+        store.setStatus('warn', 'Cancelling city generation…');
+      } else void this.runGenerate();
+    });
     el(root, '#btn-walk').addEventListener('click', () => this.scene.setWalkMode(!this.scene.isWalkMode));
     el(root, '#btn-export').addEventListener('click', () => void this.runExport(false));
     el(root, '#btn-export-zip').addEventListener('click', () => void this.runExport(true));
@@ -312,7 +319,8 @@ export class App {
     if (!bounds) return;
 
     const button = el<HTMLButtonElement>(this.root, '#btn-generate');
-    button.disabled = true;
+    button.disabled = false;
+    this.cancelRequested = false;
     button.textContent = 'Cancel';
     this.setImportProgress(0, 'Starting city build…', true);
     if (!result) {
@@ -349,6 +357,7 @@ export class App {
 
     try {
       for (const block of blocks) {
+        if (this.cancelRequested) break;
         const generating = { ...block, status: 'generating' as const };
         this.cityBlocks = blocks.map((item) => item.id === block.id ? generating : item);
         this.renderBlocks();
@@ -392,7 +401,8 @@ export class App {
       (el(this.root, '#btn-save') as HTMLButtonElement).disabled = false;
       this.selection.refreshHighlight();
       this.updateProps();
-      store.setStatus(
+      if (this.cancelRequested) store.setStatus('warn', `Generation paused at ${completed}/${total} blocks. Run Generate City again to rebuild.`);
+      else store.setStatus(
         meshes ? 'info' : 'warn',
         meshes
           ? `City rendering complete: ${completed} blocks, ${triangles.toLocaleString()} triangles. Each block appeared as it finished.`
@@ -403,6 +413,7 @@ export class App {
     } finally {
       button.disabled = false;
       button.textContent = 'Generate City';
+      this.cancelRequested = false;
     }
   }
 
