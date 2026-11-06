@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { MapView } from '../map/MapView';
 import { AreaSelector } from '../map/AreaSelector';
 import { boundsAreaKm2, boundsSizeMeters, MAX_AREA_KM2, validateSelection } from '../map/DhakaBounds';
@@ -313,7 +314,7 @@ export class App {
       ? this.cityBlocks
       : assignFeaturesToBlocks(createCityBlocks(bounds), result.features);
     const featureById = new Map(result.features.map((feature) => [feature.id, feature]));
-    const root = new (await import('three')).Group();
+    const root = new THREE.Group();
     root.name = 'dhaka-city';
     root.userData.modelVersion = 1;
     root.userData.coordinateSystem = 'shared-selection-origin';
@@ -340,7 +341,7 @@ export class App {
           this.history.current,
           this.layers,
         );
-        const blockGroup = partial.group.children[0] as import('three').Group | undefined;
+        const blockGroup = partial.group.children[0] as THREE.Group | undefined;
         if (blockGroup) {
           this.scene.addCityBlock(blockGroup);
           triangles += partial.stats.triangles;
