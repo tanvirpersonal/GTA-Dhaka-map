@@ -304,10 +304,84 @@ export class App {
     const result = this.importResult;
     const bounds = store.selection;
     if (!result || !bounds) return;
-    store.setStatus('info', 'Generating 3D city…');
-    await new Promise((r) => setTimeout(r, 30)); // let the status paint before heavy work
+
+    const button = el<HTMLButtonElement>(this.root, '#btn-generate');
+    button.disabled = true;
+    button.textContent = 'Generating…';
     this.setWorking(bounds, result, {}, defaultLayers());
-    this.regenerate(true);
+    const blocks = this.cityBlocks.length
+      ? this.cityBlocks
+      : assignFeaturesToBlocks(createCityBlocks(bounds), result.features);
+    const featureById = new Map(result.features.map((feature) => [feature.id, feature]));
+    const root = new (await import('three')).Group();
+    root.name = 'dhaka-city';
+    root.userData.modelVersion = 1;
+    root.userData.coordinateSystem = 'shared-selection-origin';
+    this.scene.setCity(root, false);
+    const size = boundsSizeMeters(bounds);
+    this.scene.frameCity(size.width, size.height);
+
+    let triangles = 0;
+    let meshes = 0;
+    let completed = 0;
+    const total = blocks.length;
+    const yieldFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    try {
+      for (const block of blocks) {
+        const generating = { ...block, status: 'generating' as const };
+        this.cityBlocks = blocks.map((item) => item.id === block.id ? generating : item);
+        this.renderBlocks();
+
+        const partial = generateBlockCity(
+          result,
+          bounds,
+          [generating],
+          this.history.current,
+          this.layers,
+        );
+        const blockGroup = partial.group.children[0] as import('three').Group | undefined;
+        if (blockGroup) {
+          this.scene.addCityBlock(blockGroup);
+          triangles += partial.stats.triangles;
+          meshes += partial.stats.meshes;
+        }
+        completed++;
+        this.cityBlocks = blocks.map((item) =>
+          item.id === block.id ? { ...item, status: 'validated' as const } : item,
+        );
+        saveBlockProgress(this.cityBlocks);
+        this.renderBlocks();
+        el(this.root, '#placeholder').style.display = 'none';
+        store.setStatus('info', `Rendering city blocks: ${completed}/${total} · ${Math.round(completed / total * 100)}%`);
+        await yieldFrame();
+      }
+
+      root.userData.blockManifest = {
+        schemaVersion: 1,
+        modelVersion: 1,
+        blockSizeM: 250,
+        totalBlocks: total,
+        blocks: this.cityBlocks,
+      };
+      (el(this.root, '#btn-walk') as HTMLButtonElement).disabled = meshes === 0;
+      (el(this.root, '#btn-export') as HTMLButtonElement).disabled = meshes === 0;
+      (el(this.root, '#btn-export-zip') as HTMLButtonElement).disabled = meshes === 0;
+      (el(this.root, '#btn-save') as HTMLButtonElement).disabled = false;
+      this.selection.refreshHighlight();
+      this.updateProps();
+      store.setStatus(
+        meshes ? 'info' : 'warn',
+        meshes
+          ? `City rendering complete: ${completed} blocks, ${triangles.toLocaleString()} triangles. Each block appeared as it finished.`
+          : 'No 3D geometry was generated for this selection.',
+      );
+    } catch (err) {
+      store.setStatus('error', `Block generation stopped: ${(err as Error).message}`);
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Generate';
+    }
   }
 
   /** Make a (bounds, import) pair the active editable project. */
