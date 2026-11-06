@@ -322,9 +322,16 @@ export class App {
     button.disabled = true;
     button.textContent = 'Generating…';
     this.setWorking(bounds, result, {}, defaultLayers());
-    const blocks = this.cityBlocks.length
+    const blocks = (this.cityBlocks.length
       ? this.cityBlocks
-      : assignFeaturesToBlocks(createCityBlocks(bounds), result.features);
+      : assignFeaturesToBlocks(createCityBlocks(bounds), result.features))
+      .slice()
+      .sort((a, b) => {
+        const [cx, cy] = [DHAKA_EXTENT.west + (DHAKA_EXTENT.east - DHAKA_EXTENT.west) / 2, DHAKA_EXTENT.south + (DHAKA_EXTENT.north - DHAKA_EXTENT.south) / 2];
+        const da = Math.pow((a.bounds.west + a.bounds.east) / 2 - cx, 2) + Math.pow((a.bounds.south + a.bounds.north) / 2 - cy, 2);
+        const db = Math.pow((b.bounds.west + b.bounds.east) / 2 - cx, 2) + Math.pow((b.bounds.south + b.bounds.north) / 2 - cy, 2);
+        return da - db;
+      });
     const root = new THREE.Group();
     root.name = 'dhaka-city';
     root.userData.modelVersion = 1;
