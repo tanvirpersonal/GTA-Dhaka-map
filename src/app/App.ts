@@ -314,33 +314,17 @@ export class App {
   }
 
   private async runGenerate(): Promise<void> {
-    let result = this.importResult;
     const bounds = store.selection;
     if (!bounds) return;
-
     const button = el<HTMLButtonElement>(this.root, '#btn-generate');
     button.disabled = false;
-    this.cancelRequested = false;
     button.textContent = 'Cancel';
-    this.setImportProgress(0, 'Starting city build…', true);
-    if (!result) {
-      this.abort = new AbortController();
-      const imported = await this.runImport();
-      if (!imported) { button.disabled = false; button.textContent = 'Generate City'; return; }
-      result = this.importResult;
-    }
-    if (!result) { button.disabled = false; button.textContent = 'Generate City'; return; }
-    this.setWorking(bounds, result, {}, defaultLayers());
-    const blocks = (this.cityBlocks.length
-      ? this.cityBlocks
-      : assignFeaturesToBlocks(createCityBlocks(bounds), result.features))
-      .slice()
-      .sort((a, b) => {
-        const [cx, cy] = [DHAKA_EXTENT.west + (DHAKA_EXTENT.east - DHAKA_EXTENT.west) / 2, DHAKA_EXTENT.south + (DHAKA_EXTENT.north - DHAKA_EXTENT.south) / 2];
-        const da = Math.pow((a.bounds.west + a.bounds.east) / 2 - cx, 2) + Math.pow((a.bounds.south + a.bounds.north) / 2 - cy, 2);
-        const db = Math.pow((b.bounds.west + b.bounds.east) / 2 - cx, 2) + Math.pow((b.bounds.south + b.bounds.north) / 2 - cy, 2);
-        return da - db;
-      });
+    this.cancelRequested = false;
+    this.abort = new AbortController();
+    const signal = this.abort.signal;
+    const allFeatures = new Map<string, MapFeature>();
+    const blocks = createCityBlocks(bounds);
+    const built = new Set<string>();
     const root = new THREE.Group();
     root.name = 'dhaka-city';
     root.userData.modelVersion = 1;
@@ -348,24 +332,27 @@ export class App {
     this.scene.setCity(root, false);
     const size = boundsSizeMeters(bounds);
     this.scene.frameCity(size.width, size.height);
-
+    this.setWorking(bounds, { features: [], counts: { building: 0, road: 0, path: 0, waterway: 0, water: 0, green: 0 }, warnings: [] }, {}, defaultLayers());
     let triangles = 0;
     let meshes = 0;
-    let completed = 0;
-    const total = blocks.length;
+    let importedTiles = 0;
+    let totalTiles = 0;
+    let completedBlocks = 0;
     const yieldFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-    try {
-      for (const block of blocks) {
-        if (this.cancelRequested) break;
-        const generating = { ...block, status: 'generating' as const };
-        this.cityBlocks = blocks.map((item) => item.id === block.id ? generating : item);
-        this.renderBlocks();
-
+    const addReadyBlocks = async (ready: CityBlock[]) => {
+      if (!ready.length) return;
+      const features = [...allFeatures.values()];
+      const assigned = assignFeaturesToBlocks(blocks, features);
+      const byId = new Map(features.map((feature) => [feature.id, feature]));
+      for (const block of ready) {
+        if (built.has(block.id) || this.cancelRequested) continue;
+        const current = assigned.find((item) => item.id === block.id);
+        if (!current) continue;
         const partial = generateBlockCity(
-          result,
+          { features, counts: { building: 0, road: 0, path: 0, waterway: 0, water: 0, green: 0 }, warnings: [] },
           bounds,
-          [generating],
+          [current],
           this.history.current,
           this.layers,
         );
@@ -375,45 +362,77 @@ export class App {
           triangles += partial.stats.triangles;
           meshes += partial.stats.meshes;
         }
-        completed++;
-        this.cityBlocks = blocks.map((item) =>
-          item.id === block.id ? { ...item, status: 'validated' as const } : item,
-        );
-        saveBlockProgress(this.cityBlocks);
-        this.renderBlocks();
-        el(this.root, '#placeholder').style.display = 'none';
-        const overall = 20 + Math.round((completed / total) * 80);
-        this.setImportProgress(overall, `Generating 3D city blocks ${completed}/${total}`, true);
-        store.setStatus('info', `City generation ${overall}% · block ${completed}/${total}`);
+        built.add(block.id);
+        completedBlocks++;
         await yieldFrame();
       }
-
-      root.userData.blockManifest = {
-        schemaVersion: 1,
-        modelVersion: 1,
-        blockSizeM: 250,
-        totalBlocks: total,
-        blocks: this.cityBlocks,
+      this.cityBlocks = assigned.map((block) => built.has(block.id) ? { ...block, status: 'validated' as const } : block);
+      saveBlockProgress(this.cityBlocks);
+      this.mapView.setCityBlocks(this.cityBlocks);
+      this.renderBlocks();
+      this.working = {
+        bounds,
+        result: { features, counts: { building: 0, road: 0, path: 0, waterway: 0, water: 0, green: 0 }, warnings: [] },
+        byId,
       };
+      el(this.root, '#placeholder').style.display = 'none';
+    };
+
+    try {
+      store.setStatus('info', 'Importing small map tiles and generating each city section immediately…');
+      const result = await importTiled(bounds, {
+        signal,
+        onProgress: ({ done, total, fromCache }) => {
+          importedTiles = done;
+          totalTiles = total;
+          const pct = Math.round((done / total) * 100);
+          this.setImportProgress(Math.min(95, Math.round(pct * 0.95)), `Importing tiles and building nearby sections ${done}/${total}${fromCache ? ' · cached' : ''}`, true);
+          store.setStatus('info', `Streaming city build · tile ${done}/${total} · ${completedBlocks} blocks ready`);
+        },
+        onTile: async ({ tile, features }) => {
+          for (const feature of features) allFeatures.set(feature.id, feature);
+          const assigned = assignFeaturesToBlocks(blocks, [...allFeatures.values()]);
+          const ready = assigned.filter((block) => {
+            const x = (block.bounds.west + block.bounds.east) / 2;
+            const y = (block.bounds.south + block.bounds.north) / 2;
+            return x >= tile.west && x <= tile.east && y >= tile.south && y <= tile.north && !built.has(block.id);
+          });
+          await addReadyBlocks(ready);
+          const progress = totalTiles ? Math.round((importedTiles / totalTiles) * 95) : 0;
+          this.setImportProgress(progress, `Generating while importing · ${completedBlocks} city blocks ready`, true);
+        },
+        onRetry: ({ attempt, reason, delayMs }) =>
+          store.setStatus('warn', `Overpass: ${reason}. Retry ${attempt} in ${Math.round(delayMs / 1000)}s…`),
+      });
+      if (this.cancelRequested) throw new DOMException('Cancelled', 'AbortError');
+
+      // Build edge/leftover blocks after the final tile, then publish the complete project data.
+      this.importResult = result;
+      this.cityBlocks = assignFeaturesToBlocks(blocks, result.features);
+      await addReadyBlocks(this.cityBlocks.filter((block) => !built.has(block.id)));
+      this.cityBlocks = this.cityBlocks.map((block) => built.has(block.id) ? { ...block, status: 'validated' as const } : block);
+      saveBlockProgress(this.cityBlocks);
+      this.working = { bounds, result, byId: new Map(result.features.map((feature) => [feature.id, feature])) };
+      root.userData.blockManifest = { schemaVersion: 1, modelVersion: 1, blockSizeM: 250, totalBlocks: blocks.length, blocks: this.cityBlocks };
+      this.renderImport();
+      this.renderBlocks();
+      this.setImportProgress(100, 'City generation complete', true);
       (el(this.root, '#btn-walk') as HTMLButtonElement).disabled = meshes === 0;
       (el(this.root, '#btn-export') as HTMLButtonElement).disabled = meshes === 0;
       (el(this.root, '#btn-export-zip') as HTMLButtonElement).disabled = meshes === 0;
       (el(this.root, '#btn-save') as HTMLButtonElement).disabled = false;
       this.selection.refreshHighlight();
       this.updateProps();
-      if (this.cancelRequested) store.setStatus('warn', `Generation paused at ${completed}/${total} blocks. Run Generate City again to rebuild.`);
-      else store.setStatus(
-        meshes ? 'info' : 'warn',
-        meshes
-          ? `City rendering complete: ${completed} blocks, ${triangles.toLocaleString()} triangles. Each block appeared as it finished.`
-          : 'No 3D geometry was generated for this selection.',
-      );
+      store.setStatus('info', `Streaming build complete: ${importedTiles}/${totalTiles} tiles, ${completedBlocks} blocks, ${triangles.toLocaleString()} triangles.`);
     } catch (err) {
-      store.setStatus('error', `Block generation stopped: ${(err as Error).message}`);
+      const e = err as Error;
+      if (e.name === 'AbortError') store.setStatus('warn', `Build cancelled after ${importedTiles}/${totalTiles} tiles and ${completedBlocks} blocks. Partial city remains visible.`);
+      else store.setStatus('error', `City build failed: ${e.message}`);
     } finally {
+      this.abort = null;
+      this.cancelRequested = false;
       button.disabled = false;
       button.textContent = 'Generate City';
-      this.cancelRequested = false;
     }
   }
 
