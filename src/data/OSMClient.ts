@@ -43,17 +43,31 @@ export class OSMImportError extends Error {
   }
 }
 
+const abortError = () => new DOMException('Aborted', 'AbortError');
+
+const throwIfAborted = (signal?: AbortSignal) => {
+  if (signal?.aborted) throw abortError();
+};
+
 const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
-    const t = setTimeout(resolve, ms);
-    signal?.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(t);
-        reject(new DOMException('Aborted', 'AbortError'));
-      },
-      { once: true },
-    );
+    if (signal?.aborted) {
+      reject(abortError());
+      return;
+    }
+
+    const cleanup = () => signal?.removeEventListener('abort', onAbort);
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      cleanup();
+      reject(abortError());
+    };
+
+    signal?.addEventListener('abort', onAbort, { once: true });
   });
 
 const RETRYABLE = new Set([429, 502, 503, 504]);
@@ -61,16 +75,25 @@ const RETRYABLE = new Set([429, 502, 503, 504]);
 /** Fetch OSM data for bounds with retry, backoff and mirror fallback. */
 export async function fetchOSM(bounds: Bounds, opts: FetchOptions = {}): Promise<OverpassResponse> {
   const { signal, maxAttempts = 4, onRetry, endpoints = OVERPASS_ENDPOINTS } = opts;
+  if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
+    throw new RangeError('maxAttempts must be a positive integer.');
+  }
+  if (endpoints.length === 0) {
+    throw new RangeError('At least one Overpass endpoint is required.');
+  }
+
   const body = new URLSearchParams({ data: buildOverpassQuery(bounds) });
   let lastReason = 'unknown error';
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    throwIfAborted(signal);
     const url = endpoints[(attempt - 1) % endpoints.length];
     let retryAfterMs = 0;
     try {
       const res = await fetch(url, { method: 'POST', body, signal });
       if (res.ok) {
         const json = (await res.json()) as OverpassResponse;
+        throwIfAborted(signal);
         if (!Array.isArray(json.elements)) throw new OSMImportError('Unexpected response from Overpass.');
         return json;
       }
